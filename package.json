@@ -1,0 +1,27 @@
+{
+    "name": "units-prototype",
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "setup": "node scripts/setup.mjs",
+        "build": "node scripts/build.mjs",
+        "demo": "node scripts/transfer_and_prove.mjs",
+        "verify:tx": "node scripts/verify_tx.mjs",
+        "server": "node app.js",
+        "test:generic": "node test-api.mjs",
+        "test:working": "node test-working.mjs",
+        "cleanup": "node scripts/cleanup.mjs"
+    },
+    "dependencies": {
+        "better-sqlite3": "^9.4.0",
+        "big-integer": "^1.6.52",
+        "circomlib": "^2.0.5",
+        "circomlibjs": "^0.0.8",
+        "cors": "^2.8.5",
+        "express": "^4.18.2",
+        "merkletreejs": "^0.3.11"
+    },
+    "devDependencies": {
+        "snarkjs": "^0.7.3"
+    }
+}
