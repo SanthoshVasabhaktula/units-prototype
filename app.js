@@ -7,7 +7,8 @@
 
 import express from 'express';
 import cors from 'cors';
-import { performTransfer, performGenericStateTransfer, verifyProof, getVerificationExamples } from './scripts/api.mjs';
+import { transfer, getAllTokens, getToken, createToken, TOKEN_TYPES } from './scripts/token-api.mjs';
+import { verifyProof, getVerificationExamples } from './scripts/api.mjs';
 import { getAllAccounts, getAccount, getLastTx } from './scripts/utils.mjs';
 
 const app = express();
@@ -16,24 +17,29 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 
-// --- API 1: Transfer with ZK Proof (Legacy) ---
+// --- API 1: Token Transfer with ZK Proof (New Token-Based API) ---
 app.post('/api/transfer', async (req, res) => {
   try {
-    const { senderId, receiverId, amount, txNonce } = req.body;
+    const { tokenId, from, to, transferParams, transferCircuit } = req.body;
     
-    if (!senderId || !receiverId || !amount) {
+    if (!tokenId || !from || !to) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: senderId, receiverId, amount'
+        error: 'Missing required fields: tokenId, from, to'
       });
     }
 
-    const result = await performTransfer({
-      senderId,
-      receiverId,
-      amount: parseInt(amount),
-      txNonce: txNonce || Date.now()
-    });
+    // Default to fungible transfer if no transferParams provided
+    const params = transferParams || { amount: 100 };
+    const circuit = transferCircuit || 'transfer';
+
+    const result = await transfer(
+      tokenId,
+      from,
+      to,
+      params,
+      circuit
+    );
 
     res.json(result);
   } catch (error) {
@@ -44,26 +50,29 @@ app.post('/api/transfer', async (req, res) => {
   }
 });
 
-// --- API 2: Generic State Transfer with ZK Proof ---
+// --- API 2: Generic Token Transfer with ZK Proof ---
 app.post('/api/transfer/generic', async (req, res) => {
   try {
-    const { senderId, receiverId, tokenId, tokenType, transferParams, txNonce } = req.body;
+    const { tokenId, from, to, transferParams, transferCircuit } = req.body;
     
-    if (!senderId || !receiverId || !tokenId || tokenType === undefined || !transferParams) {
+    if (!tokenId || !from || !to) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: senderId, receiverId, tokenId, tokenType, transferParams'
+        error: 'Missing required fields: tokenId, from, to'
       });
     }
 
-    const result = await performGenericStateTransfer({
-      senderId,
-      receiverId,
-      tokenId: parseInt(tokenId),
-      tokenType: parseInt(tokenType),
-      transferParams: transferParams.map(p => parseInt(p)),
-      txNonce: txNonce || Date.now()
-    });
+    // Default to generic circuit if not specified
+    const circuit = transferCircuit || 'generic';
+    const params = transferParams || {};
+
+    const result = await transfer(
+      tokenId,
+      from,
+      to,
+      params,
+      circuit
+    );
 
     res.json(result);
   } catch (error) {
@@ -101,7 +110,71 @@ app.post('/api/verify', async (req, res) => {
   }
 });
 
-// --- API 4: Get Accounts ---
+// --- API 4: Get All Tokens ---
+app.get('/api/tokens', (req, res) => {
+  try {
+    const tokens = getAllTokens();
+    res.json({
+      success: true,
+      tokens: tokens
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// --- API 5: Get Specific Token ---
+app.get('/api/tokens/:tokenId', (req, res) => {
+  try {
+    const token = getToken(req.params.tokenId);
+    if (!token) {
+      return res.status(404).json({
+        success: false,
+        error: 'Token not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      token: token
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// --- API 6: Create Token ---
+app.post('/api/tokens', (req, res) => {
+  try {
+    const { id, type, name, initialState } = req.body;
+    
+    if (!id || type === undefined || !name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: id, type, name'
+      });
+    }
+
+    const token = createToken(id, type, name, initialState || {});
+    res.json({
+      success: true,
+      token: token
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// --- API 7: Get Accounts (Legacy) ---
 app.get('/api/accounts', (req, res) => {
   try {
     const accounts = getAllAccounts();
@@ -123,7 +196,7 @@ app.get('/api/accounts', (req, res) => {
   }
 });
 
-// --- API 5: Get Specific Account ---
+// --- API 8: Get Specific Account (Legacy) ---
 app.get('/api/accounts/:accountId', (req, res) => {
   try {
     const account = getAccount(req.params.accountId);
@@ -152,7 +225,7 @@ app.get('/api/accounts/:accountId', (req, res) => {
   }
 });
 
-// --- API 6: Get Transaction History ---
+// --- API 9: Get Transaction History ---
 app.get('/api/transactions', (req, res) => {
   try {
     const lastTx = getLastTx();
@@ -168,7 +241,7 @@ app.get('/api/transactions', (req, res) => {
   }
 });
 
-// --- API 7: Get Verification Examples ---
+// --- API 10: Get Verification Examples ---
 app.get('/api/verify/examples', (req, res) => {
   try {
     const examples = getVerificationExamples();
@@ -184,7 +257,7 @@ app.get('/api/verify/examples', (req, res) => {
   }
 });
 
-// --- API 8: Health Check ---
+// --- API 11: Health Check ---
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -195,23 +268,28 @@ app.get('/api/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Zero-Knowledge Proof Server running on port ${PORT}`);
+  console.log(`🚀 Token-Based ZK Proof Server running on port ${PORT}`);
   console.log('\n📋 Available APIs:');
-  console.log('  POST /api/transfer        - Transfer funds with ZK proof (Legacy)');
-  console.log('  POST /api/transfer/generic - Generic state transfer with ZK proof');
+  console.log('  POST /api/transfer        - Token transfer with ZK proof (New)');
+  console.log('  POST /api/transfer/generic - Generic token transfer with ZK proof');
+  console.log('  POST /api/tokens          - Create new token');
+  console.log('  GET  /api/tokens          - View all tokens');
+  console.log('  GET  /api/tokens/:id      - View specific token');
   console.log('  POST /api/verify          - Verify ZK proof');
-  console.log('  GET  /api/accounts        - View all accounts');
-  console.log('  GET  /api/accounts/:id    - View specific account');
+  console.log('  GET  /api/accounts        - View all accounts (Legacy)');
+  console.log('  GET  /api/accounts/:id    - View specific account (Legacy)');
   console.log('  GET  /api/transactions    - View transaction history');
   console.log('  GET  /api/verify/examples - Get verification examples');
   console.log('  GET  /api/health          - Health check');
   console.log('\n📖 Example usage:');
-  console.log('  # Legacy fungible transfer:');
+  console.log('  # Token transfer (GOLD from alice to bob):');
   console.log('  curl -X POST http://localhost:3000/api/transfer \\');
   console.log('    -H "Content-Type: application/json" \\');
-  console.log('    -d \'{"senderId":"alice","receiverId":"bob","amount":1000}\'');
-  console.log('  # Generic NFT transfer:');
-  console.log('  curl -X POST http://localhost:3000/api/transfer/generic \\');
+  console.log('    -d \'{"tokenId":"GOLD","from":"alice","to":"bob","transferParams":{"amount":100}}\'');
+  console.log('  # Create new token:');
+  console.log('  curl -X POST http://localhost:3000/api/tokens \\');
   console.log('    -H "Content-Type: application/json" \\');
-  console.log('    -d \'{"senderId":"alice","receiverId":"bob","tokenId":123,"tokenType":1,"transferParams":[0,0,0,0]}\'');
+  console.log('    -d \'{"id":"DIAMOND","type":0,"name":"Diamond Coins","initialState":{"state":5000}}\'');
+  console.log('  # View all tokens:');
+  console.log('  curl http://localhost:3000/api/tokens');
 });

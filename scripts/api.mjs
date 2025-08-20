@@ -43,6 +43,9 @@ const DEPTH = 4; // 16 leaves
 
 // ---------- Legacy Transfer API (uses original transfer circuit) ----------
 export async function performTransfer({ senderId, receiverId, amount, txNonce }) {
+  // Generate unique file ID for cleanup
+  const fileId = generateUniqueId();
+  
   try {
     console.log(`▶ Starting legacy transfer: ${senderId} → ${receiverId}, amount: ${amount}`);
     
@@ -90,11 +93,10 @@ export async function performTransfer({ senderId, receiverId, amount, txNonce })
     const sAfter = merklePath(layers, sender.idx);
     const rAfter = merklePath(layers, receiver.idx);
     
-    // Generate unique transaction ID and file IDs
+    // Generate unique transaction ID
     const ts = BigInt(Math.floor(Date.now() / 1000));
     const txNonceBig = BigInt(txNonce || Date.now());
     const txId = pHash5(sender.pub, receiver.pub, transferAmount, txNonceBig, ts);
-    const fileId = generateUniqueId();
     
     // Prepare witness input JSON for the circuit
     const input = {
@@ -170,30 +172,6 @@ export async function performTransfer({ senderId, receiverId, amount, txNonce })
       vkey_version: "vk-1"
     });
     
-    // Clean up temporary files
-    console.log("▶ Cleaning up temporary files...");
-    cleanupTempFiles(fileId);
-    
-    // Additional cleanup of snarkjs temporary files
-    const tempFiles = [
-      inputFile,
-      proofFile,
-      publicFile,
-      `build/wtns_${fileId}.wtns`,  // Witness file
-      `build/witness_${fileId}.json` // Witness JSON
-    ];
-    
-    for (const file of tempFiles) {
-      try {
-        if (fs.existsSync(file)) {
-          fs.unlinkSync(file);
-          console.log(`  - Cleaned up: ${file}`);
-        }
-      } catch (error) {
-        console.log(`  - Warning: Could not clean up ${file}: ${error.message}`);
-      }
-    }
-    
     console.log("✔ Legacy transfer completed successfully");
     
     return {
@@ -213,6 +191,13 @@ export async function performTransfer({ senderId, receiverId, amount, txNonce })
   } catch (error) {
     console.error("❌ Legacy transfer failed:", error.message);
     throw error;
+  } finally {
+    // Always clean up temporary files, even if there was an error
+    try {
+      cleanupTempFiles(fileId);
+    } catch (cleanupError) {
+      console.log(`  ⚠️ Warning: Could not clean up files for ${fileId}: ${cleanupError.message}`);
+    }
   }
 }
 

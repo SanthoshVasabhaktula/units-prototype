@@ -154,18 +154,18 @@ export function generateUniqueId() {
   return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-export function cleanupTempFiles(fileIds) {
+export function cleanupTempFiles(fileId) {
   const filesToDelete = [
-    `build/input_${fileIds}.json`,
-    `build/proof_${fileIds}.json`,
-    `build/public_${fileIds}.json`,
-    `build/wtns_${fileIds}.wtns`,  // Witness file
-    `build/witness_${fileIds}.json`, // Witness JSON
-    `build/circuit_${fileIds}.sym`,  // Symbol file
-    `build/circuit_${fileIds}.r1cs`  // R1CS file
+    `build/input_${fileId}.json`,
+    `build/proof_${fileId}.json`,
+    `build/public_${fileId}.json`,
+    `build/wtns_${fileId}.wtns`,  // Witness file
+    `build/witness_${fileId}.json`, // Witness JSON
+    `build/circuit_${fileId}.sym`,  // Symbol file
+    `build/circuit_${fileId}.r1cs`  // R1CS file
   ];
   
-  console.log(`  🧹 Cleaning up temporary files for ${fileIds}...`);
+  console.log(`  🧹 Cleaning up temporary files for ${fileId}...`);
   for (const file of filesToDelete) {
     try {
       if (fs.existsSync(file)) {

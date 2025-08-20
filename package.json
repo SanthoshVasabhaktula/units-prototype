@@ -5,11 +5,10 @@
     "scripts": {
         "setup": "node scripts/setup.mjs",
         "build": "node scripts/build.mjs",
-        "demo": "node scripts/transfer_and_prove.mjs",
+        "demo": "node demo-system.mjs",
+        "test": "node test-system.mjs",
         "verify:tx": "node scripts/verify_tx.mjs",
         "server": "node app.js",
-        "test:generic": "node test-api.mjs",
-        "test:working": "node test-working.mjs",
         "cleanup": "node scripts/cleanup.mjs"
     },
     "dependencies": {
