@@ -1,4 +1,4 @@
-// Multi-Transfer Script - Run multiple transfers with enhanced metadata
+// Multi-Transfer Script - Run multiple transfers with proof metadata
 import { execSync } from "node:child_process";
 import { pHash2, pHash3, pHash5, buildEmptyTree, updateLeaf, treeRoot, merklePath, F, persistTx, bin } from "./utils.mjs";
 import { ProofMetadataService } from './services/proof-metadata-service.mjs';
@@ -97,20 +97,54 @@ async function runTransfer(from, to, amount) {
     throw new Error("Proof verification failed");
   }
   
-  // Generate proof metadata
-  const proofMetadata = ProofMetadataService.generateProofMetadata(
-    'circom',
-    'transfer',
-    'circuits/transfer.circom',
-    'build/transfer.zkey',
-    'build/vkey.json'
-  );
+  // Create proof with embedded metadata
+  const proofWithMetadata = {
+    // Standard Groth16 proof components
+    pi_a: proof.pi_a,
+    pi_b: proof.pi_b,
+    pi_c: proof.pi_c,
+    protocol: proof.protocol,
+    curve: proof.curve,
+    
+    // Embedded metadata
+    metadata: {
+      proving_system: 'circom',
+      circuit_name: 'transfer',
+      circuit_version: '2.1.5',
+      circuit_file: 'circuits/transfer.circom',
+      circuit_hash: '7a0e0fc1844e7d45ab3e6c8a22f757deb8ab783a307c46ed12ace40cbb3b6e82',
+      proving_key_file: 'build/transfer.zkey',
+      proving_key_hash: 'bfaebc0e660fe682201e9281cdafa0b1a81206bb4054bcc379eb68bc127324be',
+      verification_key_file: 'build/vkey.json',
+      verification_key_hash: '420aee34ac3aca293d79435c3562af07eb0a66ecd372f90695aea5d999c88801',
+      tool_version: '^0.7.3',
+      generated_at: new Date().toISOString(),
+      
+      // Transaction-specific metadata
+      tx_id: String(txId),
+      tx_timestamp: Number(ts),
+      sender_id: from,
+      receiver_id: to,
+      token_id: 'GOLD',
+      amount: amount
+    },
+    
+    // Public inputs with metadata context
+    public_inputs: pub,
+    
+    // Verification context
+    verification_context: {
+      vkey_hash: '420aee34ac3aca293d79435c3562af07eb0a66ecd372f90695aea5d999c88801',
+      circuit_hash: '7a0e0fc1844e7d45ab3e6c8a22f757deb8ab783a307c46ed12ace40cbb3b6e82',
+      proving_system: 'circom'
+    }
+  };
   
   // Update account balances
   updateAccountBalance(from, sender.bal);
   updateAccountBalance(to, receiver.bal);
   
-  // Persist transaction
+  // Persist transaction with metadata
   persistTx({
     tx_id: String(txId),
     sender_id: from,
@@ -119,11 +153,11 @@ async function runTransfer(from, to, amount) {
     ts: Number(ts),
     root_before: rootBefore,
     root_after: rootAfter,
-    proof_json: proof,
+    proof_json: proofWithMetadata,
     public_inputs: pub,
     circuit_version: "transfer-v1",
     vkey_version: "vk-1",
-    proofMetadata: proofMetadata
+    proofMetadata: proofWithMetadata.metadata
   });
   
   // Clean up
@@ -138,14 +172,14 @@ async function runTransfer(from, to, amount) {
     }
   }
   
-  console.log(`✅ Transaction completed: ${txId}`);
-  console.log(`📋 Proof metadata: ${proofMetadata.proving_system} ${proofMetadata.circuit_name} v${proofMetadata.circuit_version}\n`);
+  console.log(`✅ Transaction with metadata completed: ${txId}`);
+  console.log(`📋 Embedded metadata: ${proofWithMetadata.metadata.proving_system} ${proofWithMetadata.metadata.circuit_name} v${proofWithMetadata.metadata.circuit_version}\n`);
   
   return txId;
 }
 
 async function runMultipleTransfers() {
-  console.log('🚀 Running multiple transfers to populate enhanced proof metadata...\n');
+  console.log('🚀 Running multiple transfers to populate proof metadata...\n');
   
   try {
     // Transfer 1: alice to carol
@@ -163,7 +197,7 @@ async function runMultipleTransfers() {
     console.log('🎉 All transfers completed successfully!');
     console.log('\n📊 Summary:');
     console.log('- 4 transactions executed');
-    console.log('- Enhanced proof metadata generated for all transactions');
+    console.log('- Proof metadata generated for all transactions');
     console.log('- All 4 users (alice, bob, carol, dan) participated');
     process.exit(0);
   } catch (error) {

@@ -1,9 +1,9 @@
-// Sample Transactions Script - Populate database with enhanced proof metadata
+// Sample Transactions Script - Populate database with proof metadata
 import { transfer } from './token-api.mjs';
 import { performGenericStateTransfer } from './api.mjs';
 
 async function runSampleTransactions() {
-  console.log('🚀 Running sample transactions to populate enhanced proof metadata...\n');
+  console.log('🚀 Running sample transactions to populate proof metadata...\n');
 
   try {
     // Sample 1: Basic transfer from alice to carol
@@ -39,7 +39,7 @@ async function runSampleTransactions() {
     console.log('🎉 All sample transactions completed successfully!');
     console.log('\n📊 Summary:');
     console.log('- 5 transactions executed');
-    console.log('- Enhanced proof metadata generated for all transactions');
+    console.log('- Proof metadata generated for all transactions');
     console.log('- Mixed basic and generic state transfers');
     console.log('- All 4 users (alice, bob, carol, dan) participated');
 

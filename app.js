@@ -111,7 +111,9 @@ app.post('/api/verify', async (req, res) => {
   }
 });
 
-// --- API 4: Get All Tokens ---
+
+
+// --- API 5: Get All Tokens ---
 app.get('/api/tokens', (req, res) => {
   try {
     const tokens = getAllTokens();
@@ -127,7 +129,7 @@ app.get('/api/tokens', (req, res) => {
   }
 });
 
-// --- API 5: Get Specific Token ---
+// --- API 6: Get Specific Token ---
 app.get('/api/tokens/:tokenId', (req, res) => {
   try {
     const token = getToken(req.params.tokenId);
@@ -150,7 +152,7 @@ app.get('/api/tokens/:tokenId', (req, res) => {
   }
 });
 
-// --- API 6: Create Token ---
+// --- API 7: Create Token ---
 app.post('/api/tokens', (req, res) => {
   try {
     const { id, type, name, initialState } = req.body;
@@ -175,7 +177,7 @@ app.post('/api/tokens', (req, res) => {
   }
 });
 
-// --- API 7: Get Accounts (Legacy) ---
+// --- API 8: Get Accounts (Legacy) ---
 app.get('/api/accounts', (req, res) => {
   try {
     const accounts = getAllAccounts();
@@ -197,7 +199,7 @@ app.get('/api/accounts', (req, res) => {
   }
 });
 
-// --- API 8: Get Specific Account (Legacy) ---
+// --- API 9: Get Specific Account (Legacy) ---
 app.get('/api/accounts/:accountId', (req, res) => {
   try {
     const account = getAccount(req.params.accountId);
@@ -226,7 +228,7 @@ app.get('/api/accounts/:accountId', (req, res) => {
   }
 });
 
-// --- API 9: Get Transaction History ---
+// --- API 10: Get Transaction History ---
 app.get('/api/transactions', (req, res) => {
   try {
     const { account } = req.query;
@@ -246,7 +248,7 @@ app.get('/api/transactions', (req, res) => {
   }
 });
 
-// --- API 10: Get Last Transaction ---
+// --- API 11: Get Last Transaction ---
 app.get('/api/transactions/last', (req, res) => {
   try {
     const lastTx = getLastTx();
@@ -269,7 +271,7 @@ app.get('/api/transactions/last', (req, res) => {
   }
 });
 
-// --- API 11: Get Verification Examples ---
+// --- API 12: Get Verification Examples ---
 app.get('/api/verify/examples', (req, res) => {
   try {
     const examples = getVerificationExamples();
@@ -285,7 +287,7 @@ app.get('/api/verify/examples', (req, res) => {
   }
 });
 
-// --- API 12: Get Available Proving Systems ---
+// --- API 13: Get Available Proving Systems ---
 app.get('/api/proving-systems', (req, res) => {
   try {
     const provingSystems = ProofMetadataService.getAvailableProvingSystems();
@@ -301,7 +303,7 @@ app.get('/api/proving-systems', (req, res) => {
   }
 });
 
-// --- API 13: Get Circuit Information ---
+// --- API 14: Get Circuit Information ---
 app.get('/api/circuits/:circuitName', (req, res) => {
   try {
     const circuitInfo = ProofMetadataService.getCircuitInfo(req.params.circuitName);
@@ -324,7 +326,7 @@ app.get('/api/circuits/:circuitName', (req, res) => {
   }
 });
 
-// --- API 14: Health Check ---
+// --- API 15: Health Check ---
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -343,6 +345,7 @@ app.listen(PORT, () => {
   console.log('  GET  /api/tokens          - View all tokens');
   console.log('  GET  /api/tokens/:id      - View specific token');
   console.log('  POST /api/verify          - Verify ZK proof');
+
   console.log('  GET  /api/accounts        - View all accounts (Legacy)');
   console.log('  GET  /api/accounts/:id    - View specific account (Legacy)');
   console.log('  GET  /api/transactions    - View all transactions (use ?account=user to filter)');

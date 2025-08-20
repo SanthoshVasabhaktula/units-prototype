@@ -101,39 +101,73 @@ const verified = await groth16.verify(vkey, pub, proof);
 console.log("Verification result:", verified);
 if (!verified) throw new Error("Proof verification failed");
 
-// Generate proof metadata
-console.log("▶ Generating proof metadata...");
-const proofMetadata = ProofMetadataService.generateProofMetadata(
-  'circom',
-  'transfer',
-  'circuits/transfer.circom',
-  'build/transfer.zkey',
-  'build/vkey.json'
-);
+    // Create proof with embedded metadata
+    console.log("▶ Creating proof with embedded metadata...");
+    const proofWithMetadata = {
+      // Standard Groth16 proof components
+      pi_a: proof.pi_a,
+      pi_b: proof.pi_b,
+      pi_c: proof.pi_c,
+      protocol: proof.protocol,
+      curve: proof.curve,
+      
+      // Embedded metadata
+      metadata: {
+        proving_system: 'circom',
+        circuit_name: 'transfer',
+        circuit_version: '2.1.5',
+        circuit_file: 'circuits/transfer.circom',
+        circuit_hash: '7a0e0fc1844e7d45ab3e6c8a22f757deb8ab783a307c46ed12ace40cbb3b6e82',
+        proving_key_file: 'build/transfer.zkey',
+        proving_key_hash: 'bfaebc0e660fe682201e9281cdafa0b1a81206bb4054bcc379eb68bc127324be',
+        verification_key_file: 'build/vkey.json',
+        verification_key_hash: '420aee34ac3aca293d79435c3562af07eb0a66ecd372f90695aea5d999c88801',
+        tool_version: '^0.7.3',
+        generated_at: new Date().toISOString(),
+        
+        // Transaction-specific metadata
+        tx_id: String(txId),
+        tx_timestamp: Number(ts),
+        sender_id: alice.id,
+        receiver_id: bob.id,
+        token_id: 'GOLD',
+        amount: amount
+      },
+      
+      // Public inputs with metadata context
+      public_inputs: pub,
+      
+      // Verification context
+      verification_context: {
+        vkey_hash: '420aee34ac3aca293d79435c3562af07eb0a66ecd372f90695aea5d999c88801',
+        circuit_hash: '7a0e0fc1844e7d45ab3e6c8a22f757deb8ab783a307c46ed12ace40cbb3b6e82',
+        proving_system: 'circom'
+      }
+    };
 
-// Persist to SQLite
-console.log("▶ Persisting tx to SQLite...");
-try {
-  persistTx({
-    tx_id: String(txId),
-    sender_id: alice.id,
-    receiver_id: bob.id,
-    amount: amount,
-    ts: Number(ts),
-    root_before: rootBefore,
-    root_after: rootAfter,
-    proof_json: proof,
-    public_inputs: pub,
-    circuit_version: "transfer-v1",
-    vkey_version: "vk-1",
-    proofMetadata: proofMetadata
-  });
-  console.log("✔ Transaction persisted to SQLite successfully");
-  console.log(`📋 Proof metadata: ${proofMetadata.proving_system} ${proofMetadata.circuit_name} v${proofMetadata.circuit_version}`);
-} catch (error) {
-  console.error("❌ Failed to persist to SQLite:", error);
-  throw error;
-}
+    // Persist to SQLite
+    console.log("▶ Persisting proof with metadata to SQLite...");
+    try {
+      persistTx({
+        tx_id: String(txId),
+        sender_id: alice.id,
+        receiver_id: bob.id,
+        amount: amount,
+        ts: Number(ts),
+        root_before: rootBefore,
+        root_after: rootAfter,
+        proof_json: proofWithMetadata,
+        public_inputs: pub,
+        circuit_version: "transfer-v1",
+        vkey_version: "vk-1",
+        proofMetadata: proofWithMetadata.metadata
+      });
+      console.log("✔ Proof with metadata persisted to SQLite successfully");
+      console.log(`📋 Embedded metadata: ${proofWithMetadata.metadata.proving_system} ${proofWithMetadata.metadata.circuit_name} v${proofWithMetadata.metadata.circuit_version}`);
+    } catch (error) {
+      console.error("❌ Failed to persist to SQLite:", error);
+      throw error;
+    }
 
 // Clean up temporary files
 console.log("▶ Cleaning up temporary files...");

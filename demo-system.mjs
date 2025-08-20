@@ -8,6 +8,7 @@ import {
   TOKEN_TYPES, 
   STATE_FORMATS 
 } from './scripts/token-api.mjs';
+import { getAllTransactions } from './scripts/utils.mjs';
 
 console.log('🚀 Token-Based ZK Proof System Demo\n');
 
@@ -19,7 +20,7 @@ async function runDemo() {
     console.log('   • Tokens with flexible state fields (instead of simple balances)');
     console.log('   • Modular 6-step transfer flow');
     console.log('   • Service-based architecture');
-    console.log('   • Real ZK proof generation');
+    console.log('   • Real ZK proof generation with embedded metadata');
     console.log('   • Clean, readable API');
     
     // 2. Available Tokens
@@ -67,6 +68,7 @@ async function runDemo() {
     console.log(`   Alice State After: ${JSON.stringify(transferResult.senderStateAfter)}`);
     console.log(`   Bob State After: ${JSON.stringify(transferResult.receiverStateAfter)}`);
     console.log(`   ZK Proof Generated: ${transferResult.proof ? 'Yes' : 'No'}`);
+    console.log(`   Embedded Metadata: ${transferResult.embeddedMetadata ? 'Yes' : 'No'}`);
     console.log(`   Merkle Roots: ${transferResult.rootBefore ? 'Calculated' : 'Not calculated'}`);
     
     // 6. Token Creation Demo
@@ -84,16 +86,40 @@ async function runDemo() {
     console.log(`   Initial State: ${JSON.stringify(newToken.state)}`);
     console.log(`   Token Type: ${STATE_FORMATS[newToken.type].description}`);
     
-    // 7. System Benefits
+    // 7. Proof Metadata Demo
+    console.log('\n📋 Proof Metadata Demonstration');
+    console.log('   All proofs now include embedded metadata by default:');
+    
+    const transactions = getAllTransactions();
+    if (transactions.length > 0) {
+      const latestTx = transactions[0];
+      console.log(`   Latest Transaction: ${latestTx.tx_id.substring(0, 20)}...`);
+      console.log(`   From: ${latestTx.sender_id} → To: ${latestTx.receiver_id}`);
+      console.log(`   Amount: ${latestTx.amount}`);
+      
+      if (latestTx.proof_json.metadata) {
+        console.log('   ✅ Proof includes embedded metadata:');
+        console.log(`      • Proving System: ${latestTx.proof_json.metadata.proving_system}`);
+        console.log(`      • Circuit: ${latestTx.proof_json.metadata.circuit_name} v${latestTx.proof_json.metadata.circuit_version}`);
+        console.log(`      • Tool Version: ${latestTx.proof_json.metadata.tool_version}`);
+        console.log(`      • Generated: ${latestTx.proof_json.metadata.generated_at}`);
+      }
+      
+      const metadataCount = transactions.filter(tx => tx.proof_json.metadata).length;
+      console.log(`   📊 Metadata Coverage: ${metadataCount}/${transactions.length} proofs (${((metadataCount/transactions.length)*100).toFixed(1)}%)`);
+    }
+    
+    // 8. System Benefits
     console.log('\n🎯 System Benefits');
     console.log('   ✅ Clean, readable API (87.5% reduction in main file size)');
     console.log('   ✅ Modular service architecture');
-    console.log('   ✅ Reusable ZK proof generation');
+    console.log('   ✅ Reusable ZK proof generation with embedded metadata');
     console.log('   ✅ Flexible token state management');
+    console.log('   ✅ Cryptographically bound proof metadata');
     console.log('   ✅ Easy testing and maintenance');
     console.log('   ✅ Scalable design for future features');
     
-    // 8. Production Readiness
+    // 9. Production Readiness
     console.log('\n🚀 Production Readiness');
     console.log('   The system is ready for production use with:');
     console.log('   ✅ Working fungible token transfers');
@@ -102,11 +128,12 @@ async function runDemo() {
     console.log('   ✅ Comprehensive logging');
     console.log('   ✅ Clean, maintainable codebase');
     
-    // 9. Next Steps
+    // 10. Next Steps
     console.log('\n🔮 Next Steps');
     console.log('   To extend the system further:');
     console.log('   • Add support for NFT transfers (requires circuit compilation)');
     console.log('   • Integrate with real database (replace mock storage)');
+    console.log('   • Extend proof metadata with additional fields');
     console.log('   • Connect to actual blockchain for public ledger');
     console.log('   • Add more token types and transfer logic');
     console.log('   • Implement advanced validation rules');

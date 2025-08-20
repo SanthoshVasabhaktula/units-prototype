@@ -38,10 +38,10 @@ export async function transfer(tokenId, from, to, transferParams = {}, transferC
     // Step 2: Initiate transfer
     const txLog = TransferService.initiateTransfer(token, from, to, transferParams);
     
-    // Step 3: Generate ZK proof
+    // Step 3: Generate ZK proof with embedded metadata
     const proofResult = await ZKProofService.generateZKProof(txLog, transferCircuit);
     
-    // Step 4: Save transaction log
+    // Step 4: Save transaction log with proof metadata
     const savedTxLog = StorageService.saveTxLog(txLog, proofResult.proof);
     
     // Step 5: Commit transfer
@@ -66,8 +66,8 @@ export async function transfer(tokenId, from, to, transferParams = {}, transferC
       rootAfter: txLog.merkleData?.rootAfter,
       timestamp: txLog.timestamp,
       ledgerRecord,
-      // Enhanced proof metadata
-      proofMetadata: proofResult.metadata
+      // Proof with embedded metadata
+      embeddedMetadata: proofResult.proof.metadata
     };
     
   } catch (error) {

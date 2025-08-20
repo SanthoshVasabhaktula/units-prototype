@@ -78,8 +78,51 @@ export class ZKProofService {
         console.warn("⚠️ Proof metadata validation warnings:", metadataValidation.warnings);
       }
 
+      // Create proof with embedded metadata
+      const proofWithMetadata = {
+        // Standard Groth16 proof components
+        pi_a: proof.pi_a,
+        pi_b: proof.pi_b,
+        pi_c: proof.pi_c,
+        protocol: proof.protocol,
+        curve: proof.curve,
+        
+        // Embedded metadata
+        metadata: {
+          proving_system: proofMetadata.proving_system,
+          circuit_name: proofMetadata.circuit_name,
+          circuit_version: proofMetadata.circuit_version,
+          circuit_file: proofMetadata.circuit_file,
+          circuit_hash: proofMetadata.circuit_hash,
+          proving_key_file: proofMetadata.proving_key_file,
+          proving_key_hash: proofMetadata.proving_key_hash,
+          verification_key_file: proofMetadata.verification_key_file,
+          verification_key_hash: proofMetadata.verification_key_hash,
+          tool_version: proofMetadata.tool_version,
+          generated_at: proofMetadata.generated_at,
+          
+          // Transaction-specific metadata
+          tx_id: txLog.id,
+          tx_timestamp: txLog.timestamp,
+          sender_id: txLog.from,
+          receiver_id: txLog.to,
+          token_id: txLog.tokenId,
+          amount: txLog.transferParams?.amount || 0
+        },
+        
+        // Public inputs with metadata context
+        public_inputs: publicInputs,
+        
+        // Verification context
+        verification_context: {
+          vkey_hash: proofMetadata.verification_key_hash,
+          circuit_hash: proofMetadata.circuit_hash,
+          proving_system: proofMetadata.proving_system
+        }
+      };
+
       // Update transaction log with proof data and metadata
-      txLog.proof = proof;
+      txLog.proof = proofWithMetadata;
       txLog.publicInputs = publicInputs;
       txLog.proofMetadata = proofMetadata;
       txLog.merkleData = {
@@ -88,10 +131,10 @@ export class ZKProofService {
       };
       txLog.status = 'proven';
       
-      console.log("✅ ZK proof generated and verified successfully");
-      console.log(`📋 Proof metadata: ${proofMetadata.proving_system} ${proofMetadata.circuit_name} v${proofMetadata.circuit_version}`);
+      console.log("✅ ZK proof with embedded metadata generated and verified successfully");
+      console.log(`📋 Embedded metadata: ${proofMetadata.proving_system} ${proofMetadata.circuit_name} v${proofMetadata.circuit_version}`);
       
-      return { proof, publicInputs, verified, metadata: proofMetadata };
+      return { proof: proofWithMetadata, publicInputs, verified, metadata: proofMetadata };
       
     } catch (error) {
       console.error("❌ ZK proof generation failed:", error.message);
@@ -103,6 +146,53 @@ export class ZKProofService {
       } catch (cleanupError) {
         console.log(`  ⚠️ Warning: Could not clean up files for ${fileId}: ${cleanupError.message}`);
       }
+    }
+  }
+
+  /**
+   * Verify proof with embedded metadata
+   * @param {Object} proofWithMetadata - Proof with embedded metadata
+   * @returns {Object} - Verification result
+   */
+  static async verifyProofWithMetadata(proofWithMetadata) {
+    try {
+      console.log(`▶ Verifying proof with embedded metadata for transaction: ${proofWithMetadata.metadata?.tx_id}`);
+      
+      // Extract base proof components
+      const baseProof = {
+        pi_a: proofWithMetadata.pi_a,
+        pi_b: proofWithMetadata.pi_b,
+        pi_c: proofWithMetadata.pi_c,
+        protocol: proofWithMetadata.protocol,
+        curve: proofWithMetadata.curve
+      };
+      
+      // Load verification key
+      const vkeyPath = proofWithMetadata.metadata?.verification_key_file || 'build/vkey.json';
+      const vkey = JSON.parse(fs.readFileSync(vkeyPath));
+      
+      // Verify the base proof
+      const verified = await groth16.verify(vkey, proofWithMetadata.public_inputs, baseProof);
+      
+      // Validate metadata integrity
+      const metadataValidation = ProofMetadataService.validateMetadata(proofWithMetadata.metadata);
+      
+      return {
+        success: true,
+        verified,
+        txId: proofWithMetadata.metadata?.tx_id,
+        metadata: proofWithMetadata.metadata,
+        validation: metadataValidation,
+        timestamp: Date.now()
+      };
+      
+    } catch (error) {
+      console.error("❌ Proof verification failed:", error.message);
+      return {
+        success: false,
+        error: error.message,
+        timestamp: Date.now()
+      };
     }
   }
 

@@ -62,7 +62,7 @@ export function getDb() {
     fs.mkdirSync("data", { recursive: true });
     const db = sqlite("data/tx_logs.sqlite");
     
-    // Create tables with enhanced metadata fields
+    // Create tables with proof metadata fields
     db.exec(`CREATE TABLE IF NOT EXISTS tx_logs (
       tx_id TEXT PRIMARY KEY,
       sender_id TEXT NOT NULL,
@@ -111,15 +111,22 @@ export function getDb() {
 export function persistTx({tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version, proofMetadata = null}) {
   const db = getDb();
   
+  // Helper function to safely stringify objects with BigInt values
+  const safeStringify = (obj) => {
+    return JSON.stringify(obj, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    );
+  };
+  
   if (proofMetadata) {
-    // Use enhanced metadata if available
+    // Use proof metadata if available
     const stmt = db.prepare(`INSERT OR REPLACE INTO tx_logs
       (tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version, 
        proving_system, circuit_name, circuit_file, circuit_hash, proving_key_file, proving_key_hash, verification_key_file, verification_key_hash, tool_version, proof_metadata)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     stmt.run(
       tx_id, sender_id, receiver_id, String(amount), ts, String(root_before), String(root_after), 
-      JSON.stringify(proof_json), JSON.stringify(public_inputs), circuit_version, vkey_version,
+      safeStringify(proof_json), safeStringify(public_inputs), circuit_version, vkey_version,
       proofMetadata.proving_system || 'unknown',
       proofMetadata.circuit_name || 'unknown',
       proofMetadata.circuit_file || 'unknown',
@@ -129,14 +136,14 @@ export function persistTx({tx_id, sender_id, receiver_id, amount, ts, root_befor
       proofMetadata.verification_key_file || 'unknown',
       proofMetadata.verification_key_hash || 'unknown',
       proofMetadata.tool_version || 'unknown',
-      JSON.stringify(proofMetadata)
+      safeStringify(proofMetadata)
     );
   } else {
     // Fallback to basic metadata
     const stmt = db.prepare(`INSERT OR REPLACE INTO tx_logs
       (tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
-    stmt.run(tx_id, sender_id, receiver_id, String(amount), ts, String(root_before), String(root_after), JSON.stringify(proof_json), JSON.stringify(public_inputs), circuit_version, vkey_version);
+    stmt.run(tx_id, sender_id, receiver_id, String(amount), ts, String(root_before), String(root_after), safeStringify(proof_json), safeStringify(public_inputs), circuit_version, vkey_version);
   }
   
   db.close();
