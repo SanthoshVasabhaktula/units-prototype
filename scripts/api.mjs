@@ -6,6 +6,7 @@ import {
   persistTx, getAllAccounts, getAccount, updateAccountBalance, 
   generateUniqueId, cleanupTempFiles, bin 
 } from "./utils.mjs";
+import { ProofMetadataService } from './services/proof-metadata-service.mjs';
 
 // Token Type Definitions
 const TOKEN_TYPES = {
@@ -152,6 +153,15 @@ export async function performTransfer({ senderId, receiverId, amount, txNonce })
       throw new Error("Proof verification failed");
     }
     
+    // Generate proof metadata
+    const proofMetadata = ProofMetadataService.generateProofMetadata(
+      'circom',
+      'transfer',
+      'circuits/transfer.circom',
+      'build/transfer.zkey',
+      'build/vkey.json'
+    );
+    
     // Update account balances in database
     updateAccountBalance(senderId, sender.bal);
     updateAccountBalance(receiverId, receiver.bal);
@@ -169,7 +179,8 @@ export async function performTransfer({ senderId, receiverId, amount, txNonce })
       proof_json: proof,
       public_inputs: publicInputs,
       circuit_version: "transfer-v1",
-      vkey_version: "vk-1"
+      vkey_version: "vk-1",
+      proofMetadata: proofMetadata
     });
     
     console.log("✔ Legacy transfer completed successfully");
@@ -321,6 +332,15 @@ export async function performGenericStateTransfer({
       throw new Error("Proof verification failed");
     }
     
+    // Generate proof metadata
+    const proofMetadata = ProofMetadataService.generateProofMetadata(
+      'circom',
+      'generic_state_transfer',
+      'circuits/generic_state_transfer.circom',
+      'build/generic_state_transfer.zkey',
+      'build/generic_state_transfer_vkey.json'
+    );
+    
     // Update token states in database
     updateTokenState(senderId, tokenId, tokenType, senderStateAfter);
     updateTokenState(receiverId, tokenId, tokenType, receiverStateAfter);
@@ -338,7 +358,8 @@ export async function performGenericStateTransfer({
       proof_json: proof,
       public_inputs: publicInputs,
       circuit_version: "generic-state-transfer-v1",
-      vkey_version: "vk-1"
+      vkey_version: "vk-1",
+      proofMetadata: proofMetadata
     });
     
     // Clean up temporary files

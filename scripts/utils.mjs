@@ -62,7 +62,7 @@ export function getDb() {
     fs.mkdirSync("data", { recursive: true });
     const db = sqlite("data/tx_logs.sqlite");
     
-    // Create tables
+    // Create tables with enhanced metadata fields
     db.exec(`CREATE TABLE IF NOT EXISTS tx_logs (
       tx_id TEXT PRIMARY KEY,
       sender_id TEXT NOT NULL,
@@ -74,7 +74,17 @@ export function getDb() {
       proof_json TEXT NOT NULL,
       public_inputs TEXT NOT NULL,
       circuit_version TEXT NOT NULL,
-      vkey_version TEXT NOT NULL)
+      vkey_version TEXT NOT NULL,
+      proving_system TEXT,
+      circuit_name TEXT,
+      circuit_file TEXT,
+      circuit_hash TEXT,
+      proving_key_file TEXT,
+      proving_key_hash TEXT,
+      verification_key_file TEXT,
+      verification_key_hash TEXT,
+      tool_version TEXT,
+      proof_metadata TEXT)
     `);
     
     db.exec(`CREATE TABLE IF NOT EXISTS accounts (
@@ -98,12 +108,37 @@ export function getDb() {
     return db;
 }
 
-export function persistTx({tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version}) {
+export function persistTx({tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version, proofMetadata = null}) {
   const db = getDb();
-  const stmt = db.prepare(`INSERT OR REPLACE INTO tx_logs
-    (tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
-  stmt.run(tx_id, sender_id, receiver_id, String(amount), ts, String(root_before), String(root_after), JSON.stringify(proof_json), JSON.stringify(public_inputs), circuit_version, vkey_version);
+  
+  if (proofMetadata) {
+    // Use enhanced metadata if available
+    const stmt = db.prepare(`INSERT OR REPLACE INTO tx_logs
+      (tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version, 
+       proving_system, circuit_name, circuit_file, circuit_hash, proving_key_file, proving_key_hash, verification_key_file, verification_key_hash, tool_version, proof_metadata)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    stmt.run(
+      tx_id, sender_id, receiver_id, String(amount), ts, String(root_before), String(root_after), 
+      JSON.stringify(proof_json), JSON.stringify(public_inputs), circuit_version, vkey_version,
+      proofMetadata.proving_system || 'unknown',
+      proofMetadata.circuit_name || 'unknown',
+      proofMetadata.circuit_file || 'unknown',
+      proofMetadata.circuit_hash || 'unknown',
+      proofMetadata.proving_key_file || 'unknown',
+      proofMetadata.proving_key_hash || 'unknown',
+      proofMetadata.verification_key_file || 'unknown',
+      proofMetadata.verification_key_hash || 'unknown',
+      proofMetadata.tool_version || 'unknown',
+      JSON.stringify(proofMetadata)
+    );
+  } else {
+    // Fallback to basic metadata
+    const stmt = db.prepare(`INSERT OR REPLACE INTO tx_logs
+      (tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+    stmt.run(tx_id, sender_id, receiver_id, String(amount), ts, String(root_before), String(root_after), JSON.stringify(proof_json), JSON.stringify(public_inputs), circuit_version, vkey_version);
+  }
+  
   db.close();
 }
 
@@ -111,7 +146,45 @@ export function getLastTx() {
   const db = getDb();
   const row = db.prepare(`SELECT * FROM tx_logs ORDER BY ts DESC LIMIT 1`).get();
   db.close();
+  
+  if (row) {
+    // Parse proof_json, public_inputs, and proof_metadata from strings to JSON objects
+    return {
+      ...row,
+      proof_json: JSON.parse(row.proof_json),
+      public_inputs: JSON.parse(row.public_inputs),
+      proof_metadata: row.proof_metadata ? JSON.parse(row.proof_metadata) : null
+    };
+  }
+  
   return row;
+}
+
+export function getAllTransactions(accountId = null) {
+  const db = getDb();
+  let rows;
+  
+  if (accountId) {
+    // Get transactions where the account is either sender or receiver
+    rows = db.prepare(`
+      SELECT * FROM tx_logs 
+      WHERE sender_id = ? OR receiver_id = ? 
+      ORDER BY ts DESC
+    `).all(accountId, accountId);
+  } else {
+    // Get all transactions
+    rows = db.prepare(`SELECT * FROM tx_logs ORDER BY ts DESC`).all();
+  }
+  
+  db.close();
+  
+  // Parse proof_json, public_inputs, and proof_metadata from strings to JSON objects
+  return rows.map(row => ({
+    ...row,
+    proof_json: JSON.parse(row.proof_json),
+    public_inputs: JSON.parse(row.public_inputs),
+    proof_metadata: row.proof_metadata ? JSON.parse(row.proof_metadata) : null
+  }));
 }
 
 // ---------- Account Management ----------

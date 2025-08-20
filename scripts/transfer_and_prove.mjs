@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { pHash2, pHash3, pHash5, buildEmptyTree, updateLeaf, treeRoot, merklePath, F, persistTx, bin } from "./utils.mjs";
+import { ProofMetadataService } from './services/proof-metadata-service.mjs';
 import { groth16 } from "snarkjs";
 import { exit } from "node:process";
 
@@ -100,6 +101,16 @@ const verified = await groth16.verify(vkey, pub, proof);
 console.log("Verification result:", verified);
 if (!verified) throw new Error("Proof verification failed");
 
+// Generate proof metadata
+console.log("▶ Generating proof metadata...");
+const proofMetadata = ProofMetadataService.generateProofMetadata(
+  'circom',
+  'transfer',
+  'circuits/transfer.circom',
+  'build/transfer.zkey',
+  'build/vkey.json'
+);
+
 // Persist to SQLite
 console.log("▶ Persisting tx to SQLite...");
 try {
@@ -114,9 +125,11 @@ try {
     proof_json: proof,
     public_inputs: pub,
     circuit_version: "transfer-v1",
-    vkey_version: "vk-1"
+    vkey_version: "vk-1",
+    proofMetadata: proofMetadata
   });
   console.log("✔ Transaction persisted to SQLite successfully");
+  console.log(`📋 Proof metadata: ${proofMetadata.proving_system} ${proofMetadata.circuit_name} v${proofMetadata.circuit_version}`);
 } catch (error) {
   console.error("❌ Failed to persist to SQLite:", error);
   throw error;

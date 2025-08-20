@@ -9,7 +9,7 @@ import express from 'express';
 import cors from 'cors';
 import { transfer, getAllTokens, getToken, createToken, TOKEN_TYPES } from './scripts/token-api.mjs';
 import { verifyProof, getVerificationExamples } from './scripts/api.mjs';
-import { getAllAccounts, getAccount, getLastTx } from './scripts/utils.mjs';
+import { getAllAccounts, getAccount, getLastTx, getAllTransactions } from './scripts/utils.mjs';
 import { ProofMetadataService } from './scripts/services/proof-metadata-service.mjs';
 
 const app = express();
@@ -229,10 +229,14 @@ app.get('/api/accounts/:accountId', (req, res) => {
 // --- API 9: Get Transaction History ---
 app.get('/api/transactions', (req, res) => {
   try {
-    const lastTx = getLastTx();
+    const { account } = req.query;
+    const transactions = getAllTransactions(account || null);
+    
     res.json({
       success: true,
-      lastTransaction: lastTx
+      transactions: transactions,
+      count: transactions.length,
+      filteredBy: account || 'all'
     });
   } catch (error) {
     res.status(500).json({
@@ -242,7 +246,30 @@ app.get('/api/transactions', (req, res) => {
   }
 });
 
-// --- API 10: Get Verification Examples ---
+// --- API 10: Get Last Transaction ---
+app.get('/api/transactions/last', (req, res) => {
+  try {
+    const lastTx = getLastTx();
+    if (lastTx) {
+      res.json({
+        success: true,
+        lastTransaction: lastTx
+      });
+    } else {
+      res.json({
+        success: true,
+        lastTransaction: null
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// --- API 11: Get Verification Examples ---
 app.get('/api/verify/examples', (req, res) => {
   try {
     const examples = getVerificationExamples();
@@ -258,7 +285,7 @@ app.get('/api/verify/examples', (req, res) => {
   }
 });
 
-// --- API 11: Get Available Proving Systems ---
+// --- API 12: Get Available Proving Systems ---
 app.get('/api/proving-systems', (req, res) => {
   try {
     const provingSystems = ProofMetadataService.getAvailableProvingSystems();
@@ -274,7 +301,7 @@ app.get('/api/proving-systems', (req, res) => {
   }
 });
 
-// --- API 12: Get Circuit Information ---
+// --- API 13: Get Circuit Information ---
 app.get('/api/circuits/:circuitName', (req, res) => {
   try {
     const circuitInfo = ProofMetadataService.getCircuitInfo(req.params.circuitName);
@@ -297,7 +324,7 @@ app.get('/api/circuits/:circuitName', (req, res) => {
   }
 });
 
-// --- API 13: Health Check ---
+// --- API 14: Health Check ---
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -318,7 +345,8 @@ app.listen(PORT, () => {
   console.log('  POST /api/verify          - Verify ZK proof');
   console.log('  GET  /api/accounts        - View all accounts (Legacy)');
   console.log('  GET  /api/accounts/:id    - View specific account (Legacy)');
-  console.log('  GET  /api/transactions    - View transaction history');
+  console.log('  GET  /api/transactions    - View all transactions (use ?account=user to filter)');
+  console.log('  GET  /api/transactions/last - View last transaction only');
   console.log('  GET  /api/verify/examples - Get verification examples');
   console.log('  GET  /api/proving-systems - Get available proving systems');
   console.log('  GET  /api/circuits/:name  - Get circuit information');
@@ -334,4 +362,8 @@ app.listen(PORT, () => {
   console.log('    -d \'{"id":"DIAMOND","type":0,"name":"Diamond Coins","initialState":{"state":5000}}\'');
   console.log('  # View all tokens:');
   console.log('  curl http://localhost:3000/api/tokens');
+  console.log('  # View all transactions:');
+  console.log('  curl http://localhost:3000/api/transactions');
+  console.log('  # View transactions for specific account:');
+  console.log('  curl http://localhost:3000/api/transactions?account=alice');
 });
