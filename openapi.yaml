@@ -1,0 +1,995 @@
+openapi: 3.0.3
+info:
+  title: Units Prototype ZK Proof System API
+  description: |
+    A modern, modular zero-knowledge proof system for token transfers with flexible state management.
+    
+    ## Features
+    - Token-based architecture with customizable state fields
+    - Multiple token types (Fungible, NFT, Attribute, Escrow)
+    - Real ZK proofs using Groth16 protocol
+    - Multi-proving system support with self-describing proofs
+    - Clean service architecture with modular transfer flow
+    
+    ## Token Types
+    - **FUNGIBLE** (0): Money-like tokens with `state` representing balance
+    - **NFT** (1): Non-fungible tokens with `state` representing ownership
+    - **ATTRIBUTE** (2): Tokens with multiple attributes (`state`, `level`, `power`, `rarity`)
+    - **ESCROW** (3): Tokens with escrow functionality
+    
+    ## Transfer Flow
+    1. `validate(token)` - Token and transfer validation
+    2. `initiateTransfer(token, from, to)` - Create transaction log
+    3. `generateZKProof(txLog, circuit)` - Generate ZK proof
+    4. `saveTxLog(txLog, proof)` - Save to database
+    5. `commitTransfer(token)` - Update token states
+    6. `saveProofInPublicLedger(proof, txLog)` - Save to blockchain
+  version: 1.0.0
+  contact:
+    name: Units Prototype Team
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  # Token Management APIs
+  /api/tokens:
+    get:
+      summary: Get all tokens
+      description: Retrieve all available tokens in the system
+      tags:
+        - Token Management
+      responses:
+        '200':
+          description: List of all tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  tokens:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Token'
+              example:
+                success: true
+                tokens:
+                  - id: "GOLD"
+                    type: 0
+                    name: "Gold Coins"
+                    state:
+                      state: 1000
+                  - id: "DIAMOND"
+                    type: 0
+                    name: "Diamond Coins"
+                    state:
+                      state: 5000
+    post:
+      summary: Create a new token
+      description: Create a new token with specified type and initial state
+      tags:
+        - Token Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - type
+                - name
+                - initialState
+              properties:
+                id:
+                  type: string
+                  description: Unique token identifier
+                  example: "DIAMOND"
+                type:
+                  type: integer
+                  enum: [0, 1, 2, 3]
+                  description: Token type (0=Fungible, 1=NFT, 2=Attribute, 3=Escrow)
+                  example: 0
+                name:
+                  type: string
+                  description: Human-readable token name
+                  example: "Diamond Coins"
+                initialState:
+                  $ref: '#/components/schemas/TokenState'
+      responses:
+        '200':
+          description: Token created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  token:
+                    $ref: '#/components/schemas/Token'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tokens/{tokenId}:
+    get:
+      summary: Get specific token
+      description: Retrieve a specific token by its ID
+      tags:
+        - Token Management
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Token identifier
+          example: "GOLD"
+      responses:
+        '200':
+          description: Token details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  token:
+                    $ref: '#/components/schemas/Token'
+        '404':
+          description: Token not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Token Transfer APIs
+  /api/transfer:
+    post:
+      summary: Transfer token with ZK proof
+      description: Transfer tokens between users with ZK proof generation using the transfer circuit
+      tags:
+        - Token Transfers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tokenId
+                - from
+                - to
+                - transferParams
+              properties:
+                tokenId:
+                  type: string
+                  description: Token to transfer
+                  example: "GOLD"
+                from:
+                  type: string
+                  description: Sender user ID
+                  example: "alice"
+                to:
+                  type: string
+                  description: Receiver user ID
+                  example: "bob"
+                transferParams:
+                  $ref: '#/components/schemas/TransferParams'
+                transferCircuit:
+                  type: string
+                  default: "transfer"
+                  enum: ["transfer", "generic_state_transfer"]
+                  description: Circuit to use for proof generation
+                  example: "transfer"
+      responses:
+        '200':
+          description: Transfer completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Proof generation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/transfer/generic:
+    post:
+      summary: Generic state transfer
+      description: Generic state transfer for complex token types (NFT, Attribute, Escrow) using the generic_state_transfer circuit
+      tags:
+        - Token Transfers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tokenId
+                - from
+                - to
+                - transferParams
+              properties:
+                tokenId:
+                  type: string
+                  description: Token to transfer
+                  example: "NFT_001"
+                from:
+                  type: string
+                  description: Sender user ID
+                  example: "alice"
+                to:
+                  type: string
+                  description: Receiver user ID
+                  example: "bob"
+                transferParams:
+                  $ref: '#/components/schemas/GenericTransferParams'
+                transferCircuit:
+                  type: string
+                  default: "generic_state_transfer"
+                  enum: ["generic_state_transfer"]
+                  description: Must be generic_state_transfer for complex tokens
+                  example: "generic_state_transfer"
+      responses:
+        '200':
+          description: Transfer completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Proof Verification APIs
+  /api/verify:
+    post:
+      summary: Verify ZK proof
+      description: Verify a ZK proof using the specified circuit
+      tags:
+        - Proof Verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - proof
+                - publicInputs
+                - circuit
+              properties:
+                proof:
+                  $ref: '#/components/schemas/Proof'
+                publicInputs:
+                  type: array
+                  items:
+                    type: string
+                  description: Public inputs used in proof generation
+                  example: []
+                circuit:
+                  type: string
+                  enum: ["transfer", "generic_state_transfer", "nft_transfer"]
+                  description: Circuit name used for verification
+                  example: "transfer"
+      responses:
+        '200':
+          description: Proof verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  verified:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Proof verified successfully"
+        '400':
+          description: Verification error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/verify/examples:
+    get:
+      summary: Get verification examples
+      description: Get example proofs and public inputs for testing verification
+      tags:
+        - Proof Verification
+      responses:
+        '200':
+          description: Example proofs and inputs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  examples:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VerificationExample'
+
+  # Proving System APIs
+  /api/proving-systems:
+    get:
+      summary: Get available proving systems
+      description: Get all available proving systems and their supported circuits
+      tags:
+        - Proving Systems
+      responses:
+        '200':
+          description: Available proving systems
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  provingSystems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProvingSystem'
+              example:
+                success: true
+                provingSystems:
+                  - name: "circom"
+                    description: "Circom with SnarkJS"
+                    supported_circuits:
+                      - "transfer"
+                      - "generic_state_transfer"
+                      - "nft_transfer"
+                    tool_version: "^0.7.3"
+
+  /api/circuits/{circuitName}:
+    get:
+      summary: Get circuit information
+      description: Get detailed information about a specific circuit
+      tags:
+        - Proving Systems
+      parameters:
+        - name: circuitName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Circuit name
+          example: "transfer"
+      responses:
+        '200':
+          description: Circuit information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  circuit:
+                    $ref: '#/components/schemas/Circuit'
+        '404':
+          description: Circuit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Legacy APIs (Deprecated)
+  /api/accounts:
+    get:
+      summary: Get all accounts (Legacy)
+      description: Get all accounts (Legacy API - deprecated, consider using /api/tokens instead)
+      tags:
+        - Legacy APIs
+      deprecated: true
+      responses:
+        '200':
+          description: List of all accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LegacyAccount'
+
+  /api/accounts/{accountId}:
+    get:
+      summary: Get specific account (Legacy)
+      description: Get a specific account by ID (Legacy API - deprecated, consider using /api/tokens instead)
+      tags:
+        - Legacy APIs
+      deprecated: true
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Account identifier
+          example: "alice"
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  account:
+                    $ref: '#/components/schemas/LegacyAccount'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # System APIs
+  /api/transactions:
+    get:
+      summary: Get transaction history
+      description: Get transaction history and logs
+      tags:
+        - System APIs
+      responses:
+        '200':
+          description: Transaction history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  transactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+
+  /api/health:
+    get:
+      summary: Health check
+      description: Check system health and status
+      tags:
+        - System APIs
+      responses:
+        '200':
+          description: System health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-08-20T10:51:14.193Z"
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+components:
+  schemas:
+    Token:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique token identifier
+          example: "GOLD"
+        type:
+          type: integer
+          enum: [0, 1, 2, 3]
+          description: Token type
+          example: 0
+        name:
+          type: string
+          description: Human-readable token name
+          example: "Gold Coins"
+        state:
+          $ref: '#/components/schemas/TokenState'
+
+    TokenState:
+      oneOf:
+        - $ref: '#/components/schemas/FungibleState'
+        - $ref: '#/components/schemas/NFTState'
+        - $ref: '#/components/schemas/AttributeState'
+        - $ref: '#/components/schemas/EscrowState'
+
+    FungibleState:
+      type: object
+      properties:
+        state:
+          type: integer
+          description: Token balance
+          example: 1000
+
+    NFTState:
+      type: object
+      properties:
+        state:
+          type: integer
+          description: Ownership indicator
+          example: 1
+
+    AttributeState:
+      type: object
+      properties:
+        state:
+          type: integer
+          description: Base state
+          example: 100
+        level:
+          type: integer
+          description: Token level
+          example: 5
+        power:
+          type: integer
+          description: Token power
+          example: 75
+        rarity:
+          type: integer
+          description: Token rarity
+          example: 3
+
+    EscrowState:
+      type: object
+      properties:
+        state:
+          type: integer
+          description: Base state
+          example: 100
+        escrow_provider:
+          type: string
+          description: Escrow provider
+          example: "trusted_escrow"
+        escrow_status:
+          type: string
+          enum: ["pending", "locked", "released", "refunded"]
+          description: Escrow status
+          example: "pending"
+        escrow_amount:
+          type: integer
+          description: Escrow amount
+          example: 50
+
+    TransferParams:
+      type: object
+      properties:
+        amount:
+          type: integer
+          description: Transfer amount for fungible tokens
+          example: 100
+
+    GenericTransferParams:
+      type: object
+      properties:
+        state:
+          type: array
+          items:
+            type: integer
+          description: State array for complex tokens
+          example: [100, 0, 0, 0]
+
+    Proof:
+      type: object
+      properties:
+        pi_a:
+          type: array
+          items:
+            type: string
+          description: Proof component A
+          example: ["10458226142799135670538103993513969796212307079209232483359951778675828671534", "17808233583856178562768895663865090942189621484372330030741409273991230338685", "1"]
+        pi_b:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+          description: Proof component B
+          example: [["2605591253784467112516545303017707941979350679366259288992827957499246047388", "21318204866683224362866310608380469478337564183319184997429280947622756821322"], ["7784385003098931177183088070212386848985754211636822905614554132989359402478", "21476019652097231165168024224336745510396663912787362845111163227168915332481"], ["1", "0"]]
+        pi_c:
+          type: array
+          items:
+            type: string
+          description: Proof component C
+          example: ["16371271899900747437723945575645803160368166664837565858882976386023374589886", "11518335671808075153997468592363334134442375690859119290803146182697315410568", "1"]
+        protocol:
+          type: string
+          example: "groth16"
+        curve:
+          type: string
+          example: "bn128"
+
+    ProofMetadata:
+      type: object
+      properties:
+        proving_system:
+          type: string
+          description: Proving system used
+          example: "circom"
+        circuit_name:
+          type: string
+          description: Circuit name
+          example: "transfer"
+        circuit_version:
+          type: string
+          description: Circuit version
+          example: "2.1.5"
+        circuit_file:
+          type: string
+          description: Circuit file path
+          example: "circuits/transfer.circom"
+        circuit_hash:
+          type: string
+          description: SHA256 hash of circuit file
+          example: "7a0e0fc1844e7d45ab3e6c8a22f757deb8ab783a307c46ed12ace40cbb3b6e82"
+        proving_key_file:
+          type: string
+          description: Proving key file path
+          example: "build/transfer.zkey"
+        proving_key_hash:
+          type: string
+          description: SHA256 hash of proving key
+          example: "bfaebc0e660fe682201e9281cdafa0b1a81206bb4054bcc379eb68bc127324be"
+        verification_key_file:
+          type: string
+          description: Verification key file path
+          example: "build/vkey.json"
+        verification_key_hash:
+          type: string
+          description: SHA256 hash of verification key
+          example: "420aee34ac3aca293d79435c3562af07eb0a66ecd372f90695aea5d999c88801"
+        tool_version:
+          type: string
+          description: Tool version
+          example: "^0.7.3"
+        generated_at:
+          type: string
+          format: date-time
+          description: Proof generation timestamp
+          example: "2025-08-20T10:51:14.193Z"
+
+    TransferResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        txId:
+          type: string
+          description: Transaction ID
+          example: "1755687071922_i7a1xn2rs"
+        tokenId:
+          type: string
+          description: Token ID
+          example: "GOLD"
+        tokenType:
+          type: integer
+          description: Token type
+          example: 0
+        tokenTypeName:
+          type: string
+          description: Human-readable token type name
+          example: "Fungible Token (Money)"
+        proof:
+          $ref: '#/components/schemas/Proof'
+        publicInputs:
+          type: array
+          items:
+            type: string
+          description: Public inputs
+          example: []
+        senderStateAfter:
+          $ref: '#/components/schemas/TokenState'
+        receiverStateAfter:
+          $ref: '#/components/schemas/TokenState'
+        rootBefore:
+          type: string
+          description: Merkle root before transfer
+          example: "7488310991834394670752332778330065534675339978989929948727192543872523847697"
+        rootAfter:
+          type: string
+          description: Merkle root after transfer
+          example: "9311149490900914095848002102076536810230915929603802368852078153046470190931"
+        timestamp:
+          type: integer
+          description: Transaction timestamp
+          example: 1755687071922
+        ledgerRecord:
+          type: object
+          properties:
+            txId:
+              type: string
+              example: "1755687071922_i7a1xn2rs"
+            tokenId:
+              type: string
+              example: "GOLD"
+            tokenType:
+              type: integer
+              example: 0
+            proofHash:
+              type: string
+              example: "12162781550555333402814167211048321681926251818803351540718558307979874390699"
+            timestamp:
+              type: integer
+              example: 1755687071922
+            status:
+              type: string
+              example: "committed"
+            provingSystem:
+              type: string
+              example: "circom"
+            circuitName:
+              type: string
+              example: "transfer"
+            circuitVersion:
+              type: string
+              example: "2.1.5"
+            toolVersion:
+              type: string
+              example: "^0.7.3"
+        proofMetadata:
+          $ref: '#/components/schemas/ProofMetadata'
+
+    ProvingSystem:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Proving system name
+          example: "circom"
+        description:
+          type: string
+          description: Proving system description
+          example: "Circom with SnarkJS"
+        supported_circuits:
+          type: array
+          items:
+            type: string
+          description: Supported circuit names
+          example: ["transfer", "generic_state_transfer", "nft_transfer"]
+        tool_version:
+          type: string
+          description: Tool version
+          example: "^0.7.3"
+
+    Circuit:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Circuit name
+          example: "transfer"
+        file:
+          type: string
+          description: Circuit file name
+          example: "transfer.circom"
+        version:
+          type: string
+          description: Circuit version
+          example: "2.1.5"
+        hash:
+          type: string
+          description: SHA256 hash of circuit file
+          example: "7a0e0fc1844e7d45ab3e6c8a22f757deb8ab783a307c46ed12ace40cbb3b6e82"
+        size:
+          type: integer
+          description: File size in bytes
+          example: 5184
+        last_modified:
+          type: string
+          format: date-time
+          description: Last modification time
+          example: "2025-08-19T07:50:58.148Z"
+
+    VerificationExample:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Example name
+          example: "Transfer Example"
+        circuit:
+          type: string
+          description: Circuit name
+          example: "transfer"
+        proof:
+          $ref: '#/components/schemas/Proof'
+        publicInputs:
+          type: array
+          items:
+            type: string
+          description: Public inputs
+          example: []
+        description:
+          type: string
+          description: Example description
+          example: "Example proof for token transfer"
+
+    LegacyAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Account ID
+          example: "alice"
+        balance:
+          type: integer
+          description: Account balance
+          example: 1000
+
+    Transaction:
+      type: object
+      properties:
+        tx_id:
+          type: string
+          description: Transaction ID
+          example: "1755687071922_i7a1xn2rs"
+        token_id:
+          type: string
+          description: Token ID
+          example: "GOLD"
+        token_type:
+          type: integer
+          description: Token type
+          example: 0
+        sender_id:
+          type: string
+          description: Sender ID
+          example: "alice"
+        receiver_id:
+          type: string
+          description: Receiver ID
+          example: "bob"
+        transfer_params:
+          type: string
+          description: JSON string of transfer parameters
+          example: '{"amount":100}'
+        ts:
+          type: integer
+          description: Timestamp
+          example: 1755687071922
+        root_before:
+          type: string
+          description: Merkle root before
+          example: "7488310991834394670752332778330065534675339978989929948727192543872523847697"
+        root_after:
+          type: string
+          description: Merkle root after
+          example: "9311149490900914095848002102076536810230915929603802368852078153046470190931"
+        proof_json:
+          type: string
+          description: JSON string of proof
+          example: '{"pi_a":["10458226142799135670538103993513969796212307079209232483359951778675828671534","17808233583856178562768895663865090942189621484372330030741409273991230338685","1"],"pi_b":[["2605591253784467112516545303017707941979350679366259288992827957499246047388","21318204866683224362866310608380469478337564183319184997429280947622756821322"],["7784385003098931177183088070212386848985754211636822905614554132989359402478","21476019652097231165168024224336745510396663912787362845111163227168915332481"],["1","0"]],"pi_c":["16371271899900747437723945575645803160368166664837565858882976386023374589886","11518335671808075153997468592363334134442375690859119290803146182697315410568","1"],"protocol":"groth16","curve":"bn128"}'
+        public_inputs:
+          type: string
+          description: JSON string of public inputs
+          example: "[]"
+        proving_system:
+          type: string
+          description: Proving system used
+          example: "circom"
+        circuit_name:
+          type: string
+          description: Circuit name
+          example: "transfer"
+        circuit_version:
+          type: string
+          description: Circuit version
+          example: "2.1.5"
+        circuit_file:
+          type: string
+          description: Circuit file path
+          example: "circuits/transfer.circom"
+        circuit_hash:
+          type: string
+          description: Circuit file hash
+          example: "7a0e0fc1844e7d45ab3e6c8a22f757deb8ab783a307c46ed12ace40cbb3b6e82"
+        proving_key_file:
+          type: string
+          description: Proving key file path
+          example: "build/transfer.zkey"
+        proving_key_hash:
+          type: string
+          description: Proving key hash
+          example: "bfaebc0e660fe682201e9281cdafa0b1a81206bb4054bcc379eb68bc127324be"
+        verification_key_file:
+          type: string
+          description: Verification key file path
+          example: "build/vkey.json"
+        verification_key_hash:
+          type: string
+          description: Verification key hash
+          example: "420aee34ac3aca293d79435c3562af07eb0a66ecd372f90695aea5d999c88801"
+        tool_version:
+          type: string
+          description: Tool version
+          example: "^0.7.3"
+        proof_metadata:
+          type: string
+          description: JSON string of complete proof metadata
+          example: '{"proving_system":"circom","circuit_name":"transfer","circuit_version":"2.1.5","circuit_file":"circuits/transfer.circom","circuit_hash":"7a0e0fc1844e7d45ab3e6c8a22f757deb8ab783a307c46ed12ace40cbb3b6e82","proving_key_file":"build/transfer.zkey","proving_key_hash":"bfaebc0e660fe682201e9281cdafa0b1a81206bb4054bcc379eb68bc127324be","verification_key_file":"build/vkey.json","verification_key_hash":"420aee34ac3aca293d79435c3562af07eb0a66ecd372f90695aea5d999c88801","tool_version":"^0.7.3","generated_at":"2025-08-20T10:51:14.193Z"}'
+        vkey_version:
+          type: string
+          description: Verification key version
+          example: "vk-1"
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error message
+          example: "Token not found"
+
+tags:
+  - name: Token Management
+    description: Token CRUD operations
+  - name: Token Transfers
+    description: Token transfer operations with ZK proofs
+  - name: Proof Verification
+    description: ZK proof verification operations
+  - name: Proving Systems
+    description: Multi-proving system support
+  - name: Legacy APIs
+    description: Legacy account/balance APIs (deprecated)
+  - name: System APIs
+    description: System utilities and health checks

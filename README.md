@@ -99,7 +99,40 @@ This showcases:
 - `npm test` - Run comprehensive test suite
 - `npm run demo` - Run interactive demo
 - `npm run server` - Start API server
+- `npm run docs` - Serve OpenAPI documentation with Swagger UI
 - `npm run cleanup` - Clean temporary files
+
+### API Documentation
+
+For comprehensive API documentation and testing, see the OpenAPI v3 specification:
+
+- **OpenAPI Spec**: `openapi.yaml` - Complete API documentation
+- **Interactive Docs**: Import into Swagger UI, Postman, or any OpenAPI-compatible tool
+- **Code Generation**: Use for client SDK generation
+
+The OpenAPI specification includes:
+- All 13 API endpoints with detailed schemas
+- Request/response examples with real data
+- Authentication (none required)
+- Error responses
+- Complete data models
+- Multi-proving system metadata schemas
+
+### Interactive Documentation
+
+Start the documentation server:
+```bash
+npm run docs
+```
+
+Then visit:
+- **Swagger UI**: http://localhost:8080
+- **OpenAPI Spec**: http://localhost:8080/api-docs
+
+You can also import `openapi.yaml` into:
+- **Postman**: Import → File → Select openapi.yaml
+- **Insomnia**: Import/Export → Import Data → From File
+- **Any OpenAPI-compatible tool**
 
 ### Project Structure
 

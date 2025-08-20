@@ -8,8 +8,9 @@
         "demo": "node demo-system.mjs",
         "test": "node test-system.mjs",
         "verify:tx": "node scripts/verify_tx.mjs",
-        "server": "node app.js",
-        "cleanup": "node scripts/cleanup.mjs"
+            "server": "node app.js",
+    "docs": "node scripts/serve-openapi.mjs",
+    "cleanup": "node scripts/cleanup.mjs"
     },
     "dependencies": {
         "better-sqlite3": "^9.4.0",
