@@ -121,21 +121,11 @@ export function persistTx({tx_id, sender_id, receiver_id, amount, ts, root_befor
   if (proofMetadata) {
     // Use proof metadata if available
     const stmt = db.prepare(`INSERT OR REPLACE INTO tx_logs
-      (tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version, 
-       proving_system, circuit_name, circuit_file, circuit_hash, proving_key_file, proving_key_hash, verification_key_file, verification_key_hash, tool_version, proof_metadata)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      (tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version, proof_metadata)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
     stmt.run(
       tx_id, sender_id, receiver_id, String(amount), ts, String(root_before), String(root_after), 
       safeStringify(proof_json), safeStringify(public_inputs), circuit_version, vkey_version,
-      proofMetadata.proving_system || 'unknown',
-      proofMetadata.circuit_name || 'unknown',
-      proofMetadata.circuit_file || 'unknown',
-      proofMetadata.circuit_hash || 'unknown',
-      proofMetadata.proving_key_file || 'unknown',
-      proofMetadata.proving_key_hash || 'unknown',
-      proofMetadata.verification_key_file || 'unknown',
-      proofMetadata.verification_key_hash || 'unknown',
-      proofMetadata.tool_version || 'unknown',
       safeStringify(proofMetadata)
     );
   } else {

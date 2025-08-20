@@ -28,17 +28,7 @@ export class StorageService {
       root_after: txLog.merkleData?.rootAfter || '',
       proof_json: JSON.stringify(proof),
       public_inputs: JSON.stringify(txLog.publicInputs),
-      // Metadata fields (extracted from embedded proof metadata)
-      proving_system: hasEmbeddedMetadata ? proof.metadata.proving_system : (txLog.proofMetadata?.proving_system || 'unknown'),
-      circuit_name: hasEmbeddedMetadata ? proof.metadata.circuit_name : (txLog.proofMetadata?.circuit_name || 'unknown'),
-      circuit_version: hasEmbeddedMetadata ? proof.metadata.circuit_version : (txLog.proofMetadata?.circuit_version || 'unknown'),
-      circuit_file: hasEmbeddedMetadata ? proof.metadata.circuit_file : (txLog.proofMetadata?.circuit_file || 'unknown'),
-      circuit_hash: hasEmbeddedMetadata ? proof.metadata.circuit_hash : (txLog.proofMetadata?.circuit_hash || 'unknown'),
-      proving_key_file: hasEmbeddedMetadata ? proof.metadata.proving_key_file : (txLog.proofMetadata?.proving_key_file || 'unknown'),
-      proving_key_hash: hasEmbeddedMetadata ? proof.metadata.proving_key_hash : (txLog.proofMetadata?.proving_key_hash || 'unknown'),
-      verification_key_file: hasEmbeddedMetadata ? proof.metadata.verification_key_file : (txLog.proofMetadata?.verification_key_file || 'unknown'),
-      verification_key_hash: hasEmbeddedMetadata ? proof.metadata.verification_key_hash : (txLog.proofMetadata?.verification_key_hash || 'unknown'),
-      tool_version: hasEmbeddedMetadata ? proof.metadata.tool_version : (txLog.proofMetadata?.tool_version || 'unknown'),
+      // All metadata is stored in the proof_metadata JSON field
       proof_metadata: JSON.stringify(hasEmbeddedMetadata ? proof.metadata : (txLog.proofMetadata || {})),
       circuit_version: hasEmbeddedMetadata ? proof.metadata.circuit_version : (txLog.proofMetadata?.circuit_version || "unknown"),
       vkey_version: "vk-1"

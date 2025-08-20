@@ -101,13 +101,9 @@ export class ZKProofService {
           tool_version: proofMetadata.tool_version,
           generated_at: proofMetadata.generated_at,
           
-          // Transaction-specific metadata
+          // Transaction identification (public)
           tx_id: txLog.id,
-          tx_timestamp: txLog.timestamp,
-          sender_id: txLog.from,
-          receiver_id: txLog.to,
-          token_id: txLog.tokenId,
-          amount: txLog.transferParams?.amount || 0
+          tx_timestamp: txLog.timestamp
         },
         
         // Public inputs with metadata context
@@ -130,6 +126,129 @@ export class ZKProofService {
         rootAfter: circuitInput.root_after
       };
       txLog.status = 'proven';
+      
+      console.log("✅ ZK proof with embedded metadata generated and verified successfully");
+      console.log(`📋 Embedded metadata: ${proofMetadata.proving_system} ${proofMetadata.circuit_name} v${proofMetadata.circuit_version}`);
+      
+      return { proof: proofWithMetadata, publicInputs, verified, metadata: proofMetadata };
+      
+    } catch (error) {
+      console.error("❌ ZK proof generation failed:", error.message);
+      throw error;
+    } finally {
+      // Always clean up temporary files, even if there was an error
+      try {
+        cleanupTempFiles(fileId);
+      } catch (cleanupError) {
+        console.log(`  ⚠️ Warning: Could not clean up files for ${fileId}: ${cleanupError.message}`);
+      }
+    }
+  }
+
+  /**
+   * Generate ZK proof with direct circuit input
+   * @param {Object} circuitInput - Direct circuit input data
+   * @param {string} transferCircuit - Circuit type to use
+   * @param {string} txId - Transaction ID
+   * @param {number} timestamp - Transaction timestamp
+   * @returns {Object} - Generated proof and public inputs
+   */
+  static async generateZKProofWithInput(circuitInput, transferCircuit = 'transfer', txId = null, timestamp = null) {
+    console.log(`▶ Generating ZK proof with direct input for circuit: ${transferCircuit}`);
+    
+    // Generate unique file IDs
+    const fileId = generateUniqueId();
+    
+    try {
+      const inputFile = `build/input_${fileId}.json`;
+      const proofFile = `build/proof_${fileId}.json`;
+      const publicFile = `build/public_${fileId}.json`;
+      
+      // Write input file
+      fs.writeFileSync(inputFile, JSON.stringify(circuitInput, null, 2));
+      
+      // Determine circuit files based on type
+      let circuitWasm, circuitZkey, circuitVkey;
+      if (transferCircuit === 'generic') {
+        circuitWasm = 'build/generic_state_transfer_js/generic_state_transfer.wasm';
+        circuitZkey = 'build/generic_state_transfer.zkey';
+        circuitVkey = 'build/generic_state_transfer_vkey.json';
+      } else {
+        circuitWasm = 'build/transfer_js/transfer.wasm';
+        circuitZkey = 'build/transfer.zkey';
+        circuitVkey = 'build/vkey.json';
+      }
+      
+      // Generate witness and prove using snarkjs
+      console.log("▶ Generating witness and proving...");
+      execSync(`${bin("snarkjs")} groth16 fullprove ${inputFile} ${circuitWasm} ${circuitZkey} ${proofFile} ${publicFile}`, { stdio: "inherit" });
+      
+      // Read generated proof and public inputs
+      const proof = JSON.parse(fs.readFileSync(proofFile));
+      const publicInputs = JSON.parse(fs.readFileSync(publicFile));
+      
+      // Verify proof
+      console.log("▶ Verifying proof...");
+      const vkey = JSON.parse(fs.readFileSync(circuitVkey));
+      const verified = await groth16.verify(vkey, publicInputs, proof);
+      
+      if (!verified) {
+        throw new Error("Proof verification failed");
+      }
+      
+      // Generate proof metadata
+      const proofMetadata = ProofMetadataService.generateProofMetadata(
+        'circom',
+        transferCircuit,
+        `circuits/${transferCircuit}.circom`,
+        circuitZkey,
+        circuitVkey
+      );
+
+      // Validate metadata
+      const metadataValidation = ProofMetadataService.validateMetadata(proofMetadata);
+      if (!metadataValidation.isValid) {
+        console.warn("⚠️ Proof metadata validation warnings:", metadataValidation.warnings);
+      }
+
+      // Create proof with embedded metadata
+      const proofWithMetadata = {
+        // Standard Groth16 proof components
+        pi_a: proof.pi_a,
+        pi_b: proof.pi_b,
+        pi_c: proof.pi_c,
+        protocol: proof.protocol,
+        curve: proof.curve,
+        
+        // Embedded metadata
+        metadata: {
+          proving_system: proofMetadata.proving_system,
+          circuit_name: proofMetadata.circuit_name,
+          circuit_version: proofMetadata.circuit_version,
+          circuit_file: proofMetadata.circuit_file,
+          circuit_hash: proofMetadata.circuit_hash,
+          proving_key_file: proofMetadata.proving_key_file,
+          proving_key_hash: proofMetadata.proving_key_hash,
+          verification_key_file: proofMetadata.verification_key_file,
+          verification_key_hash: proofMetadata.verification_key_hash,
+          tool_version: proofMetadata.tool_version,
+          generated_at: proofMetadata.generated_at,
+          
+          // Transaction identification (public)
+          tx_id: txId || circuitInput.tx_log_id,
+          tx_timestamp: timestamp || Math.floor(Date.now() / 1000)
+        },
+        
+        // Public inputs with metadata context
+        public_inputs: publicInputs,
+        
+        // Verification context
+        verification_context: {
+          vkey_hash: proofMetadata.verification_key_hash,
+          circuit_hash: proofMetadata.circuit_hash,
+          proving_system: proofMetadata.proving_system
+        }
+      };
       
       console.log("✅ ZK proof with embedded metadata generated and verified successfully");
       console.log(`📋 Embedded metadata: ${proofMetadata.proving_system} ${proofMetadata.circuit_name} v${proofMetadata.circuit_version}`);
