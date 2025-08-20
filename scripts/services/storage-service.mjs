@@ -25,7 +25,19 @@ export class StorageService {
       root_after: txLog.merkleData?.rootAfter || '',
       proof_json: JSON.stringify(proof),
       public_inputs: JSON.stringify(txLog.publicInputs),
-      circuit_version: "token-transfer-v1",
+      // Enhanced metadata fields
+      proving_system: txLog.proofMetadata?.proving_system || 'unknown',
+      circuit_name: txLog.proofMetadata?.circuit_name || 'unknown',
+      circuit_version: txLog.proofMetadata?.circuit_version || 'unknown',
+      circuit_file: txLog.proofMetadata?.circuit_file || 'unknown',
+      circuit_hash: txLog.proofMetadata?.circuit_hash || 'unknown',
+      proving_key_file: txLog.proofMetadata?.proving_key_file || 'unknown',
+      proving_key_hash: txLog.proofMetadata?.proving_key_hash || 'unknown',
+      verification_key_file: txLog.proofMetadata?.verification_key_file || 'unknown',
+      verification_key_hash: txLog.proofMetadata?.verification_key_hash || 'unknown',
+      tool_version: txLog.proofMetadata?.tool_version || 'unknown',
+      proof_metadata: JSON.stringify(txLog.proofMetadata || {}),
+      circuit_version: txLog.proofMetadata?.circuit_version || "unknown",
       vkey_version: "vk-1"
     };
     
@@ -62,7 +74,12 @@ export class StorageService {
       tokenType: txLog.tokenType,
       proofHash: String(proofHashBigInt),
       timestamp: txLog.timestamp,
-      status: 'committed'
+      status: 'committed',
+      // Enhanced metadata
+      provingSystem: txLog.proofMetadata?.proving_system || 'unknown',
+      circuitName: txLog.proofMetadata?.circuit_name || 'unknown',
+      circuitVersion: txLog.proofMetadata?.circuit_version || 'unknown',
+      toolVersion: txLog.proofMetadata?.tool_version || 'unknown'
     };
     
     console.log("✅ Proof saved to public ledger:", ledgerRecord);

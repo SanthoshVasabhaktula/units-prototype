@@ -10,6 +10,7 @@ import cors from 'cors';
 import { transfer, getAllTokens, getToken, createToken, TOKEN_TYPES } from './scripts/token-api.mjs';
 import { verifyProof, getVerificationExamples } from './scripts/api.mjs';
 import { getAllAccounts, getAccount, getLastTx } from './scripts/utils.mjs';
+import { ProofMetadataService } from './scripts/services/proof-metadata-service.mjs';
 
 const app = express();
 app.use(express.json());
@@ -257,7 +258,46 @@ app.get('/api/verify/examples', (req, res) => {
   }
 });
 
-// --- API 11: Health Check ---
+// --- API 11: Get Available Proving Systems ---
+app.get('/api/proving-systems', (req, res) => {
+  try {
+    const provingSystems = ProofMetadataService.getAvailableProvingSystems();
+    res.json({
+      success: true,
+      provingSystems
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// --- API 12: Get Circuit Information ---
+app.get('/api/circuits/:circuitName', (req, res) => {
+  try {
+    const circuitInfo = ProofMetadataService.getCircuitInfo(req.params.circuitName);
+    if (!circuitInfo) {
+      return res.status(404).json({
+        success: false,
+        error: 'Circuit not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      circuit: circuitInfo
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// --- API 13: Health Check ---
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -280,6 +320,8 @@ app.listen(PORT, () => {
   console.log('  GET  /api/accounts/:id    - View specific account (Legacy)');
   console.log('  GET  /api/transactions    - View transaction history');
   console.log('  GET  /api/verify/examples - Get verification examples');
+  console.log('  GET  /api/proving-systems - Get available proving systems');
+  console.log('  GET  /api/circuits/:name  - Get circuit information');
   console.log('  GET  /api/health          - Health check');
   console.log('\n📖 Example usage:');
   console.log('  # Token transfer (GOLD from alice to bob):');

@@ -65,7 +65,9 @@ export async function transfer(tokenId, from, to, transferParams = {}, transferC
       rootBefore: txLog.merkleData?.rootBefore,
       rootAfter: txLog.merkleData?.rootAfter,
       timestamp: txLog.timestamp,
-      ledgerRecord
+      ledgerRecord,
+      // Enhanced proof metadata
+      proofMetadata: proofResult.metadata
     };
     
   } catch (error) {

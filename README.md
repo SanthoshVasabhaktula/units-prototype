@@ -10,7 +10,8 @@ A modern, modular zero-knowledge proof system for token transfers with flexible 
 - **Real ZK Proofs**: Groth16 protocol using SnarkJS for actual zero-knowledge proof generation
 - **Clean API**: 87.5% reduction in main API file size through service modularization
 - **Production Ready**: Working fungible token transfers with proper error handling
-- **Comprehensive APIs**: 11 REST endpoints + JavaScript service modules for all operations
+- **Comprehensive APIs**: 13 REST endpoints + JavaScript service modules for all operations
+- **Multi-Proving System Support**: Self-describing proofs with metadata and version tracking
 
 ## 🏗️ Architecture
 
@@ -264,7 +265,19 @@ GET /api/transactions
 GET /api/verify/examples
 ```
 
-#### 6. System APIs
+#### 6. Proving System APIs
+
+**Get Available Proving Systems**
+```http
+GET /api/proving-systems
+```
+
+**Get Circuit Information**
+```http
+GET /api/circuits/transfer
+```
+
+#### 7. System APIs
 
 **Health Check**
 ```http
@@ -377,14 +390,31 @@ const result = await performGenericStateTransfer({
   "rootBefore": "7488310991834394670752332778330065534675339978989929948727192543872523847697",
   "rootAfter": "14180920366909593961669370158428584119653372763201923487217337936705350790696",
   "timestamp": 1755686083734,
-  "ledgerRecord": {
-    "txId": "1755686083734_99h0yewjj",
-    "tokenId": "GOLD",
-    "tokenType": 0,
-    "proofHash": "19074730123436768511748136068761853236467956668778457402345763466780377356999",
-    "timestamp": 1755686083734,
-    "status": "committed"
-  }
+        "ledgerRecord": {
+        "txId": "1755686083734_99h0yewjj",
+        "tokenId": "GOLD",
+        "tokenType": 0,
+        "proofHash": "19074730123436768511748136068761853236467956668778457402345763466780377356999",
+        "timestamp": 1755686083734,
+        "status": "committed",
+        "provingSystem": "circom",
+        "circuitName": "transfer",
+        "circuitVersion": "2.1.5",
+        "toolVersion": "^0.7.3"
+      },
+      "proofMetadata": {
+        "proving_system": "circom",
+        "circuit_name": "transfer",
+        "circuit_version": "2.1.5",
+        "circuit_file": "circuits/transfer.circom",
+        "circuit_hash": "7a0e0fc1844e7d45ab3e6c8a22f757deb8ab783a307c46ed12ace40cbb3b6e82",
+        "proving_key_file": "build/transfer.zkey",
+        "proving_key_hash": "bfaebc0e660fe682201e9281cdafa0b1a81206bb4054bcc379eb68bc127324be",
+        "verification_key_file": "build/vkey.json",
+        "verification_key_hash": "420aee34ac3aca293d79435c3562af07eb0a66ecd372f90695aea5d999c88801",
+        "tool_version": "^0.7.3",
+        "generated_at": "2025-08-20T10:51:14.193Z"
+      }
 }
 ```
 
@@ -436,6 +466,16 @@ curl http://localhost:3000/api/tokens
 **View Specific Token:**
 ```bash
 curl http://localhost:3000/api/tokens/GOLD
+```
+
+**Get Available Proving Systems:**
+```bash
+curl http://localhost:3000/api/proving-systems
+```
+
+**Get Circuit Information:**
+```bash
+curl http://localhost:3000/api/circuits/transfer
 ```
 
 **Verify Proof:**
@@ -526,6 +566,7 @@ console.log('GOLD token state:', goldToken.state);
 - **✅ Complete**: REST API endpoints (All 11 endpoints working!)
 - **✅ Complete**: File cleanup system (No more accumulating files!)
 - **✅ Complete**: BigInt serialization fixes (All APIs working!)
+- **✅ Complete**: Multi-proving system support with self-describing proofs
 - **🔄 Pending**: NFT and attribute token transfers (requires circuit compilation)
 - **🔄 Pending**: Real database integration (currently using mock storage)
 - **🔄 Pending**: Blockchain integration for public ledger

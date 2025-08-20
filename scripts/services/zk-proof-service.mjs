@@ -6,6 +6,7 @@ import {
   pHash2, pHash3, pHash5, buildEmptyTree, updateLeaf, treeRoot, merklePath, 
   generateUniqueId, cleanupTempFiles, bin 
 } from '../utils.mjs';
+import { ProofMetadataService } from './proof-metadata-service.mjs';
 
 const DEPTH = 4; // 16 leaves
 
@@ -62,9 +63,25 @@ export class ZKProofService {
         throw new Error("Proof verification failed");
       }
       
-      // Update transaction log with proof data
+      // Generate proof metadata
+      const proofMetadata = ProofMetadataService.generateProofMetadata(
+        'circom',
+        transferCircuit,
+        `circuits/${transferCircuit}.circom`,
+        circuitZkey,
+        circuitVkey
+      );
+
+      // Validate metadata
+      const metadataValidation = ProofMetadataService.validateMetadata(proofMetadata);
+      if (!metadataValidation.isValid) {
+        console.warn("⚠️ Proof metadata validation warnings:", metadataValidation.warnings);
+      }
+
+      // Update transaction log with proof data and metadata
       txLog.proof = proof;
       txLog.publicInputs = publicInputs;
+      txLog.proofMetadata = proofMetadata;
       txLog.merkleData = {
         rootBefore: circuitInput.root_before,
         rootAfter: circuitInput.root_after
@@ -72,7 +89,9 @@ export class ZKProofService {
       txLog.status = 'proven';
       
       console.log("✅ ZK proof generated and verified successfully");
-      return { proof, publicInputs, verified };
+      console.log(`📋 Proof metadata: ${proofMetadata.proving_system} ${proofMetadata.circuit_name} v${proofMetadata.circuit_version}`);
+      
+      return { proof, publicInputs, verified, metadata: proofMetadata };
       
     } catch (error) {
       console.error("❌ ZK proof generation failed:", error.message);
