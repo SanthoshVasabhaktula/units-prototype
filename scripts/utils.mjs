@@ -9,6 +9,7 @@ const { poseidon } = pkg;
 export const F = (x) => BigInt(x);
 export const pHash2 = (a,b) => poseidon([a,b]);
 export const pHash3 = (a,b,c) => poseidon([a,b,c]);
+export const pHash4 = (a,b,c,d) => poseidon([a,b,c,d]);
 export const pHash5 = (a,b,c,d,e) => poseidon([a,b,c,d,e]);
 
 // ---------- Merkle (fixed-depth, Poseidon) ----------

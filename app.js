@@ -7,7 +7,7 @@
 
 import express from 'express';
 import cors from 'cors';
-import { transfer, getAllTokens, getToken, createToken, TOKEN_TYPES } from './scripts/token-api.mjs';
+import { transfer, getAllTokens, getToken, createToken, TOKEN_TYPES } from './scripts/api.mjs';
 import { verifyProof, getVerificationExamples } from './scripts/api.mjs';
 import { getAllAccounts, getAccount, getLastTx, getAllTransactions } from './scripts/utils.mjs';
 import { ProofMetadataService } from './scripts/services/proof-metadata-service.mjs';

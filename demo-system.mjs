@@ -7,7 +7,7 @@ import {
   createToken, 
   TOKEN_TYPES, 
   STATE_FORMATS 
-} from './scripts/token-api.mjs';
+} from './scripts/api.mjs';
 import { getAllTransactions } from './scripts/utils.mjs';
 
 console.log('🚀 Token-Based ZK Proof System Demo\n');
@@ -50,9 +50,15 @@ async function runDemo() {
     console.log('   5. commitTransfer(token) - Update token states');
     console.log('   6. saveProofInPublicLedger(proof, txLog) - Save to blockchain');
     
-    // 5. Live Transfer Demo
-    console.log('\n💎 Live Transfer Demo');
-    console.log('   Executing a real fungible token transfer...');
+    // 5. Live Transfer Demo with Enhanced Public Inputs
+    console.log('\n💎 Live Transfer Demo with Enhanced Public Inputs');
+    console.log('   Executing a real fungible token transfer with new public inputs...');
+    console.log('   The system now includes these public inputs:');
+    console.log('   • sender_account (Alice\'s public key)');
+    console.log('   • receiver_account (Bob\'s public key)');
+    console.log('   • amount (transfer amount)');
+    console.log('   • nonce (transaction nonce)');
+    console.log('   • commitment (state commitment)\n');
     
     const transferResult = await transfer(
       'GOLD',           // tokenId
@@ -70,6 +76,30 @@ async function runDemo() {
     console.log(`   ZK Proof Generated: ${transferResult.proof ? 'Yes' : 'No'}`);
     console.log(`   Embedded Metadata: ${transferResult.embeddedMetadata ? 'Yes' : 'No'}`);
     console.log(`   Merkle Roots: ${transferResult.rootBefore ? 'Calculated' : 'Not calculated'}`);
+    
+    // Display the new public inputs
+    console.log('\n🔍 Enhanced Public Inputs Analysis');
+    console.log('   The proof now includes these public inputs:\n');
+    
+    if (transferResult.publicInputs && transferResult.publicInputs.length > 0) {
+      console.log(`   1. commitment: ${transferResult.publicInputs[0]}`);
+      console.log(`   2. sender_account: ${transferResult.publicInputs[1]}`);
+      console.log(`   3. receiver_account: ${transferResult.publicInputs[2]}`);
+      console.log(`   4. amount: ${transferResult.publicInputs[3]}`);
+      console.log(`   5. nonce: ${transferResult.publicInputs[4]}`);
+      console.log(`   6. root_before: ${transferResult.publicInputs[5]}`);
+      console.log(`   7. root_after: ${transferResult.publicInputs[6]}`);
+      console.log(`   8. tx_log_id: ${transferResult.publicInputs[7]}\n`);
+      
+      console.log('   💡 This enables Alice to prove:');
+      console.log('   • She sent money to Bob (receiver_account)');
+      console.log('   • The exact amount transferred (amount)');
+      console.log('   • When the transfer happened (nonce)');
+      console.log('   • The final state was correct (commitment)');
+      console.log('   • The system state was updated correctly (root_before → root_after)\n');
+    } else {
+      console.log('   ⚠️ Public inputs not available in this transfer result');
+    }
     
     // 6. Token Creation Demo
     console.log('\n✨ Token Creation Demo');
@@ -116,6 +146,8 @@ async function runDemo() {
     console.log('   ✅ Reusable ZK proof generation with embedded metadata');
     console.log('   ✅ Flexible token state management');
     console.log('   ✅ Cryptographically bound proof metadata');
+    console.log('   ✅ Enhanced public inputs for better proving capabilities');
+    console.log('   ✅ State commitment for integrity verification');
     console.log('   ✅ Easy testing and maintenance');
     console.log('   ✅ Scalable design for future features');
     

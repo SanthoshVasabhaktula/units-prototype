@@ -53,19 +53,29 @@ template MerkleRoot(DEPTH) {
 // binds to tx_log_id = Poseidon(sender_pub, receiver_pub, amount, tx_nonce, tx_timestamp)
 
 template Transfer(DEPTH) {
-    // Public inputs
-    signal input root_before;
-    signal input root_after;
-    signal input tx_log_id;
-
     // Private inputs
     signal input sender_pub;
     signal input receiver_pub;
     signal input sender_before;
     signal input receiver_before;
-    signal input amount;
     signal input sender_nonce;
     signal input receiver_nonce;
+
+    // Public inputs (declared in main component)
+    signal input sender_account;
+    signal input receiver_account;
+    signal input amount;
+    signal input nonce;
+    signal input root_before;
+    signal input root_after;
+    signal input tx_log_id;
+    
+    // After balances (provided by API, validated by circuit)
+    signal input sender_after_provided;
+    signal input receiver_after_provided;
+    
+    // Output commitment
+    signal output commitment;
 
     // Paths for BEFORE state
     signal input s_siblings_before[DEPTH];
@@ -107,11 +117,27 @@ template Transfer(DEPTH) {
     }
     rmBefore.root === root_before;
 
-    // Balance updates
+    // Validate that public inputs match private inputs
+    sender_account === sender_pub;
+    receiver_account === receiver_pub;
+
+    // Balance updates (calculated by circuit)
     signal sender_after;
     signal receiver_after;
     sender_after <== sender_before - amount;
     receiver_after <== receiver_before + amount;
+
+    // Validate that provided after balances match calculated values
+    sender_after === sender_after_provided;
+    receiver_after === receiver_after_provided;
+
+    // Generate state commitment (computed by circuit)
+    component hCommitment = Poseidon(4);
+    hCommitment.inputs[0] <== sender_after;
+    hCommitment.inputs[1] <== receiver_after;
+    hCommitment.inputs[2] <== sender_nonce;
+    hCommitment.inputs[3] <== receiver_nonce;
+    commitment <== hCommitment.out;
 
     // Range checks (64-bit) to avoid wraparound
     component sbits = Num2Bits(64);
@@ -167,4 +193,4 @@ template Transfer(DEPTH) {
     hTx.out === tx_log_id;
 }
 
-component main = Transfer(4); // Depth=4 (16 leaves) for demo
+component main { public [sender_account, receiver_account, amount, nonce, root_before, root_after, tx_log_id] } = Transfer(4); // Depth=4 (16 leaves) for demo

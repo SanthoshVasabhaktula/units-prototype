@@ -4,13 +4,195 @@ import { execSync } from "node:child_process";
 import { groth16 } from "snarkjs";
 import { 
   pHash2, pHash3, pHash5, buildEmptyTree, updateLeaf, treeRoot, merklePath, 
-  generateUniqueId, cleanupTempFiles, bin 
+  generateUniqueId, cleanupTempFiles, bin, getAllAccounts, updateAccountBalance, persistTx
 } from '../utils.mjs';
 import { ProofMetadataService } from './proof-metadata-service.mjs';
 
 const DEPTH = 4; // 16 leaves
 
 export class ZKProofService {
+  /**
+   * Generate ZK proof for the transfer using direct circuit inputs
+   * @param {Object} params - Transfer parameters for direct proof generation
+   * @returns {Object} - Generated proof and public inputs
+   */
+  static async generateDirectZKProof({ senderId, receiverId, amount, txNonce }) {
+    console.log(`▶ Starting direct ZK proof generation: ${senderId} → ${receiverId}, amount: ${amount}`);
+    
+    const fileId = generateUniqueId();
+    
+    try {
+      // Get accounts from database
+      const accounts = getAllAccounts();
+      const sender = accounts.find(acc => acc.id === senderId);
+      const receiver = accounts.find(acc => acc.id === receiverId);
+      
+      if (!sender) throw new Error(`Sender account '${senderId}' not found`);
+      if (!receiver) throw new Error(`Receiver account '${receiverId}' not found`);
+      
+      const transferAmount = BigInt(amount);
+      if (sender.bal < transferAmount) {
+        throw new Error(`Insufficient funds. Available: ${sender.bal}, Required: ${transferAmount}`);
+      }
+      
+      // Build current tree state
+      const layers = buildEmptyTree(4);
+      for (const acc of accounts) {
+        const leaf = pHash3(acc.pub, acc.bal, acc.nonce);
+        updateLeaf(layers, acc.idx, leaf);
+      }
+      const rootBefore = treeRoot(layers);
+      
+      // Get BEFORE paths
+      const sBefore = merklePath(layers, sender.idx);
+      const rBefore = merklePath(layers, receiver.idx);
+      
+      // Store original balances
+      const senderOriginalBalance = sender.bal;
+      const receiverOriginalBalance = receiver.bal;
+      
+      // Apply state update
+      sender.bal -= transferAmount;
+      receiver.bal += transferAmount;
+      
+      // Update tree with new leaves and derive AFTER root
+      const sLeafAfter = pHash3(sender.pub, sender.bal, sender.nonce);
+      const rLeafAfter = pHash3(receiver.pub, receiver.bal, receiver.nonce);
+      updateLeaf(layers, sender.idx, sLeafAfter);
+      updateLeaf(layers, receiver.idx, rLeafAfter);
+      const rootAfter = treeRoot(layers);
+      
+      // AFTER paths
+      const sAfter = merklePath(layers, sender.idx);
+      const rAfter = merklePath(layers, receiver.idx);
+      
+      // Generate unique transaction ID
+      const ts = BigInt(Math.floor(Date.now() / 1000));
+      const txNonceBig = BigInt(txNonce || Date.now());
+      const txId = pHash5(sender.pub, receiver.pub, transferAmount, txNonceBig, ts);
+      
+      // Prepare witness input JSON for the circuit
+      const input = {
+        // Enhanced public inputs (7 total)
+        sender_account: String(sender.pub),
+        receiver_account: String(receiver.pub),
+        amount: String(transferAmount),
+        nonce: String(txNonceBig),
+        root_before: String(rootBefore),
+        root_after: String(rootAfter),
+        tx_log_id: String(txId),
+        
+        // Private inputs (42 total)
+        sender_pub: String(sender.pub),
+        receiver_pub: String(receiver.pub),
+        sender_before: String(senderOriginalBalance),
+        receiver_before: String(receiverOriginalBalance),
+        sender_nonce: String(sender.nonce),
+        receiver_nonce: String(receiver.nonce),
+        
+        // After balances (provided by API, validated by circuit)
+        sender_after_provided: String(sender.bal),
+        receiver_after_provided: String(receiver.bal),
+        
+        // paths BEFORE
+        s_siblings_before: sBefore.siblings.map(String),
+        s_pathBits_before: sBefore.pathBits.map(String),
+        r_siblings_before: rBefore.siblings.map(String),
+        r_pathBits_before: rBefore.pathBits.map(String),
+        
+        // paths AFTER
+        s_siblings_after: sAfter.siblings.map(String),
+        s_pathBits_after: sAfter.pathBits.map(String),
+        r_siblings_after: rAfter.siblings.map(String),
+        r_pathBits_after: rAfter.pathBits.map(String),
+        
+        tx_nonce: String(txNonceBig),
+        tx_timestamp: String(ts)
+      };
+      
+      const inputFile = `build/input_${fileId}.json`;
+      const proofFile = `build/proof_${fileId}.json`;
+      const publicFile = `build/public_${fileId}.json`;
+      
+      // Write input file
+      fs.writeFileSync(inputFile, JSON.stringify(input, null, 2));
+      
+      // Generate witness and prove using snarkjs
+      console.log("▶ Generating witness and proving...");
+      execSync(`${bin("snarkjs")} groth16 fullprove ${inputFile} build/transfer_js/transfer.wasm build/transfer.zkey ${proofFile} ${publicFile}`, { stdio: "inherit" });
+      
+      // Read generated proof and public inputs
+      const proof = JSON.parse(fs.readFileSync(proofFile));
+      const publicInputs = JSON.parse(fs.readFileSync(publicFile));
+      
+      // Verify proof
+      console.log("▶ Verifying proof...");
+      const vkey = JSON.parse(fs.readFileSync("build/vkey.json"));
+      const verified = await groth16.verify(vkey, publicInputs, proof);
+      
+      if (!verified) {
+        throw new Error("Proof verification failed");
+      }
+      
+      // Generate proof metadata
+      const proofMetadata = ProofMetadataService.generateProofMetadata(
+        'circom',
+        'transfer',
+        'circuits/transfer.circom',
+        'build/transfer.zkey',
+        'build/vkey.json'
+      );
+      
+      // Update account balances in database
+      updateAccountBalance(senderId, sender.bal);
+      updateAccountBalance(receiverId, receiver.bal);
+      
+      // Persist transaction to database
+      console.log("▶ Persisting transaction to database...");
+      persistTx({
+        tx_id: String(txId),
+        sender_id: senderId,
+        receiver_id: receiverId,
+        amount: transferAmount,
+        ts: Number(ts),
+        root_before: rootBefore,
+        root_after: rootAfter,
+        proof_json: proof,
+        public_inputs: publicInputs,
+        circuit_version: "transfer-v1",
+        vkey_version: "vk-1",
+        proofMetadata: proofMetadata
+      });
+      
+      console.log("✔ Direct ZK proof generation completed successfully");
+      
+      return {
+        success: true,
+        txId: String(txId),
+        proof,
+        publicInputs,
+        verified,
+        metadata: proofMetadata,
+        senderStateAfter: [Number(sender.bal), 0, 0, 0],
+        receiverStateAfter: [Number(receiver.bal), 0, 0, 0],
+        rootBefore: String(rootBefore),
+        rootAfter: String(rootAfter),
+        timestamp: Number(ts)
+      };
+      
+    } catch (error) {
+      console.error("❌ Direct ZK proof generation failed:", error.message);
+      throw error;
+    } finally {
+      // Always clean up temporary files
+      try {
+        cleanupTempFiles(fileId);
+      } catch (cleanupError) {
+        console.log(`  ⚠️ Warning: Could not clean up files for ${fileId}: ${cleanupError.message}`);
+      }
+    }
+  }
+
   /**
    * Generate ZK proof for the transfer
    * @param {Object} txLog - Transaction log
@@ -387,12 +569,15 @@ export class ZKProofService {
       // For legacy transfer circuit, build a proper Merkle tree
       // This mimics the working system from api.mjs
       
-      // Create demo accounts for the Merkle tree
+      // Get actual accounts from database
+      const dbAccounts = getAllAccounts();
+      
+      // Create accounts for the Merkle tree using actual balances
       const accounts = [
-        { id: 'alice', pub: BigInt(11), bal: BigInt(txLog.stateBefore.sender.state || 0), nonce: BigInt(7), idx: 3 },
-        { id: 'bob', pub: BigInt(22), bal: BigInt(txLog.stateBefore.receiver.state || 0), nonce: BigInt(42), idx: 9 },
-        { id: 'carol', pub: BigInt(33), bal: BigInt(70000), nonce: BigInt(1), idx: 0 },
-        { id: 'dan', pub: BigInt(44), bal: BigInt(90000), nonce: BigInt(2), idx: 15 }
+        { id: 'alice', pub: BigInt(11), bal: BigInt(dbAccounts.find(acc => acc.id === 'alice')?.bal || 0), nonce: BigInt(7), idx: 3 },
+        { id: 'bob', pub: BigInt(22), bal: BigInt(dbAccounts.find(acc => acc.id === 'bob')?.bal || 0), nonce: BigInt(42), idx: 9 },
+        { id: 'carol', pub: BigInt(33), bal: BigInt(dbAccounts.find(acc => acc.id === 'carol')?.bal || 0), nonce: BigInt(1), idx: 0 },
+        { id: 'dan', pub: BigInt(44), bal: BigInt(dbAccounts.find(acc => acc.id === 'dan')?.bal || 0), nonce: BigInt(2), idx: 15 }
       ];
       
       // Build current tree state
@@ -418,29 +603,39 @@ export class ZKProofService {
       sender.bal -= transferAmount;
       receiver.bal += transferAmount;
       
-      // Update tree with new leaves and derive AFTER root
-      const sLeafAfter = pHash3(sender.pub, sender.bal, sender.nonce);
-      const rLeafAfter = pHash3(receiver.pub, receiver.bal, receiver.nonce);
-      updateLeaf(layers, sender.idx, sLeafAfter);
-      updateLeaf(layers, receiver.idx, rLeafAfter);
-      const rootAfter = treeRoot(layers);
+      // Create a fresh tree for AFTER state to avoid any state corruption
+      const afterLayers = buildEmptyTree(DEPTH);
+      for (const acc of accounts) {
+        const leaf = pHash3(acc.pub, acc.bal, acc.nonce);
+        updateLeaf(afterLayers, acc.idx, leaf);
+      }
+      const rootAfter = treeRoot(afterLayers);
       
       // AFTER paths
-      const sAfter = merklePath(layers, sender.idx);
-      const rAfter = merklePath(layers, receiver.idx);
+      const sAfter = merklePath(afterLayers, sender.idx);
+      const rAfter = merklePath(afterLayers, receiver.idx);
       
       return {
+        // Enhanced public inputs (7 total)
+        sender_account: String(sender.pub),
+        receiver_account: String(receiver.pub),
+        amount: String(transferAmount),
+        nonce: String(txNonce),
         root_before: String(rootBefore),
         root_after: String(rootAfter),
         tx_log_id: txLogId,
         
+        // Private inputs (42 total)
         sender_pub: String(sender.pub),
         receiver_pub: String(receiver.pub),
         sender_before: String(senderOriginalBalance),
         receiver_before: String(receiverOriginalBalance),
-        amount: String(transferAmount),
         sender_nonce: String(sender.nonce),
         receiver_nonce: String(receiver.nonce),
+        
+        // After balances (provided by API, validated by circuit)
+        sender_after_provided: String(senderOriginalBalance - transferAmount),
+        receiver_after_provided: String(receiverOriginalBalance + transferAmount),
         
         // paths BEFORE
         s_siblings_before: sBefore.siblings.map(String),

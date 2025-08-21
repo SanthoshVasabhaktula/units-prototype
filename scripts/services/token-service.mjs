@@ -170,7 +170,7 @@ export class TransferService {
     };
 
     // Calculate state changes based on token type
-    const { senderStateAfter, receiverStateAfter } = this.calculateStateChanges(
+    const { senderStateAfter, receiverStateAfter } = TransferService.calculateStateChanges(
       token.type, 
       txLog.stateBefore.sender, 
       txLog.stateBefore.receiver, 

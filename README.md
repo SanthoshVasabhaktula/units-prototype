@@ -10,8 +10,9 @@ A modern, modular zero-knowledge proof system for token transfers with flexible 
 - **Real ZK Proofs**: Groth16 protocol using SnarkJS for actual zero-knowledge proof generation
 - **Clean API**: 87.5% reduction in main API file size through service modularization
 - **Production Ready**: Working fungible token transfers with proper error handling
-- **Comprehensive APIs**: 13 REST endpoints + JavaScript service modules for all operations
+- **Comprehensive APIs**: 15 REST endpoints + JavaScript service modules for all operations
 - **Multi-Proving System Support**: Self-describing proofs with metadata and version tracking
+- **Database Integration**: Real SQLite database with transaction logging and metadata storage
 
 ## 🏗️ Architecture
 
@@ -34,6 +35,13 @@ A modern, modular zero-knowledge proof system for token transfers with flexible 
 4. `saveTxLog(txLog, proof)` - Save to database
 5. `commitTransfer(token)` - Update token states
 6. `saveProofInPublicLedger(proof, txLog)` - Save to blockchain
+
+### Database & Storage
+- **SQLite Database**: Persistent storage for transaction logs and metadata
+- **Transaction Logs**: Complete audit trail with proof metadata and public inputs
+- **Proof Metadata**: Embedded cryptographic metadata for verification
+- **Public Ledger**: Simulated blockchain storage for proof records
+- **Schema**: Modern schema supporting token-based transfers with flexible state fields
 
 ## 📦 Installation & Setup
 
@@ -73,6 +81,7 @@ This will test:
 - Service architecture validation
 - Transfer flow implementation
 - State validation
+- Database operations and transaction logging
 
 ## 🎯 Demo
 
@@ -88,6 +97,7 @@ This showcases:
 - Live fungible token transfer
 - Token creation
 - Service benefits
+- Database integration and transaction logging
 
 ## 🔧 Development
 
@@ -111,7 +121,7 @@ For comprehensive API documentation and testing, see the OpenAPI v3 specificatio
 - **Code Generation**: Use for client SDK generation
 
 The OpenAPI specification includes:
-- All 13 API endpoints with detailed schemas
+- All 15 API endpoints with detailed schemas
 - Request/response examples with real data
 - Authentication (none required)
 - Error responses
@@ -147,7 +157,7 @@ units-prototype/
 │   │   ├── token-service.mjs
 │   │   ├── zk-proof-service.mjs
 │   │   └── storage-service.mjs
-│   ├── token-api.mjs        # Clean API interface
+│   ├── api.mjs              # Unified API interface
 │   └── utils.mjs            # Utility functions
 ├── data/
 │   └── tx_logs.sqlite       # SQLite database
@@ -161,7 +171,7 @@ units-prototype/
 ### Basic Token Transfer
 
 ```javascript
-import { transfer } from './scripts/token-api.mjs';
+import { transfer } from './scripts/api.mjs';
 
 const result = await transfer(
   'GOLD',           // tokenId
@@ -177,7 +187,7 @@ console.log('Transfer completed:', result.txId);
 ### Token Creation
 
 ```javascript
-import { createToken, TOKEN_TYPES } from './scripts/token-api.mjs';
+import { createToken, TOKEN_TYPES } from './scripts/api.mjs';
 
 const newToken = createToken(
   'MY_TOKEN',           // id
@@ -327,7 +337,7 @@ import {
   createToken, 
   TOKEN_TYPES, 
   STATE_FORMATS 
-} from './scripts/token-api.mjs';
+} from './scripts/api.mjs';
 
 // Get all available tokens
 const tokens = getAllTokens();
@@ -341,7 +351,7 @@ const newToken = createToken('MY_TOKEN', TOKEN_TYPES.FUNGIBLE, 'My Token', { sta
 
 #### Transfer Operations
 ```javascript
-import { transfer } from './scripts/token-api.mjs';
+import { transfer } from './scripts/api.mjs';
 
 // Complete transfer with ZK proof
 const result = await transfer(tokenId, from, to, transferParams, circuitType);
@@ -356,7 +366,7 @@ import {
   saveTxLog, 
   commitTransfer, 
   saveProofInPublicLedger 
-} from './scripts/token-api.mjs';
+} from './scripts/api.mjs';
 
 // Step 1: Validate
 const isValid = validate(token, from, to, transferParams);
@@ -526,7 +536,7 @@ curl -X POST http://localhost:3000/api/verify \
 
 **Complete Transfer Flow (Working!):**
 ```javascript
-import { transfer } from './scripts/token-api.mjs';
+import { transfer } from './scripts/api.mjs';
 
 try {
   const result = await transfer(
@@ -555,7 +565,7 @@ try {
 
 **Token Management:**
 ```javascript
-import { getAllTokens, createToken, TOKEN_TYPES } from './scripts/token-api.mjs';
+import { getAllTokens, createToken, TOKEN_TYPES } from './scripts/api.mjs';
 
 // List all tokens
 const tokens = getAllTokens();
@@ -590,18 +600,20 @@ console.log('GOLD token state:', goldToken.state);
 - ✅ Clean, testable code structure
 - ✅ Comprehensive error handling
 - ✅ Production-ready foundation
+- ✅ Real database integration with SQLite
+- ✅ Complete transaction logging and metadata storage
 
 ## 🚧 Current Status
 
 - **✅ Complete**: Fungible token transfers with ZK proofs (Working!)
 - **✅ Complete**: Service-based architecture (Working!)
 - **✅ Complete**: Clean API and consolidated scripts (Working!)
-- **✅ Complete**: REST API endpoints (All 11 endpoints working!)
+- **✅ Complete**: REST API endpoints (All 15 endpoints working!)
 - **✅ Complete**: File cleanup system (No more accumulating files!)
 - **✅ Complete**: BigInt serialization fixes (All APIs working!)
 - **✅ Complete**: Multi-proving system support with self-describing proofs
 - **🔄 Pending**: NFT and attribute token transfers (requires circuit compilation)
-- **🔄 Pending**: Real database integration (currently using mock storage)
+- **✅ Complete**: Real database integration with SQLite (transaction logs and metadata storage)
 - **🔄 Pending**: Blockchain integration for public ledger
 
 ## 📚 Dependencies

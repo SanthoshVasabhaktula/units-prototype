@@ -1,7 +1,22 @@
 // Storage Service - Handles database operations and public ledger storage
 import { pHash3 } from '../utils.mjs';
+import Database from 'better-sqlite3';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export class StorageService {
+  /**
+   * Get database connection
+   * @returns {Object} - Database connection
+   */
+  static getDB() {
+    const dbPath = path.join(__dirname, '../../data/tx_logs.sqlite');
+    return new Database(dbPath);
+  }
+
   /**
    * Save transaction log to database
    * @param {Object} txLog - Transaction log
@@ -14,8 +29,6 @@ export class StorageService {
     // Check if this is a proof with embedded metadata
     const hasEmbeddedMetadata = proof.metadata && proof.verification_context;
     
-    // In a real implementation, this would save to a database
-    // For now, we'll just log it
     const txRecord = {
       tx_id: txLog.id,
       token_id: txLog.tokenId,
@@ -33,6 +46,35 @@ export class StorageService {
       circuit_version: hasEmbeddedMetadata ? proof.metadata.circuit_version : (txLog.proofMetadata?.circuit_version || "unknown"),
       vkey_version: "vk-1"
     };
+    
+    // Save to database
+    const db = this.getDB();
+    const stmt = db.prepare(`
+      INSERT INTO tx_logs (
+        tx_id, token_id, token_type, sender_id, receiver_id, transfer_params,
+        ts, root_before, root_after, proof_json, public_inputs, proof_metadata,
+        circuit_version, vkey_version
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    stmt.run(
+      txRecord.tx_id,
+      txRecord.token_id,
+      txRecord.token_type,
+      txRecord.sender_id,
+      txRecord.receiver_id,
+      txRecord.transfer_params,
+      txRecord.ts,
+      txRecord.root_before,
+      txRecord.root_after,
+      txRecord.proof_json,
+      txRecord.public_inputs,
+      txRecord.proof_metadata,
+      txRecord.circuit_version,
+      txRecord.vkey_version
+    );
+    
+    db.close();
     
     console.log("✅ Transaction log saved:", txRecord);
     return txRecord;

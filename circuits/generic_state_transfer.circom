@@ -47,7 +47,12 @@ template MerkleRoot(DEPTH) {
 // Minimal Generic State Transfer Circuit
 // Demonstrates the concept of generic state transfer
 template GenericStateTransfer(DEPTH, STATE_SIZE) {
-    // Public inputs
+    // Public inputs - Updated to include the requested fields
+    signal input sender_account;      // 1. sender account (public key)
+    signal input receiver_account;    // 2. receiver account (public key)
+    signal input amount;              // 3. amount
+    signal input nonce;               // 4. nonce
+    signal input commitment;          // 5. commitment (state commitment)
     signal input root_before;
     signal input root_after;
     signal input tx_log_id;
@@ -80,6 +85,10 @@ template GenericStateTransfer(DEPTH, STATE_SIZE) {
     signal input s_pathBits_after[DEPTH];
     signal input r_siblings_after[DEPTH];
     signal input r_pathBits_after[DEPTH];
+
+    // Verify that public inputs match private inputs
+    sender_account === sender_pub;
+    receiver_account === receiver_pub;
 
     // Compose leaves BEFORE
     component hS0 = Poseidon(3);  // pub + nonce + token_id
@@ -140,6 +149,14 @@ template GenericStateTransfer(DEPTH, STATE_SIZE) {
         rmAfter.pathBits[m] <== r_pathBits_after[m];
     }
     rmAfter.root === root_after;
+
+    // Generate state commitment from final state
+    component hCommitment = Poseidon(4);
+    hCommitment.inputs[0] <== sender_pub;
+    hCommitment.inputs[1] <== receiver_pub;
+    hCommitment.inputs[2] <== sender_state_after[0];  // Use first state field as balance
+    hCommitment.inputs[3] <== receiver_state_after[0]; // Use first state field as balance
+    commitment === hCommitment.out;
 
     // Bind to tx_log_id
     signal input tx_nonce;
