@@ -42,13 +42,14 @@ async function runDemo() {
     
     // 4. Transfer Flow Demo
     console.log('\n🔄 Transfer Flow Demonstration');
-    console.log('   The system implements a 6-step transfer flow:');
+    console.log('   The system implements a 7-step transfer flow:');
     console.log('   1. validate(token) - Token and transfer validation');
     console.log('   2. initiateTransfer(token, from, to) - Create transaction log');
     console.log('   3. generateZKProof(txLog, circuit) - Generate ZK proof');
     console.log('   4. saveTxLog(txLog, proof) - Save to database');
     console.log('   5. commitTransfer(token) - Update token states');
     console.log('   6. saveProofInPublicLedger(proof, txLog) - Save to blockchain');
+    console.log('   7. updateTxLogWithLedgerMetadata(txId, ledgerRecord) - Store ledger metadata');
     
     // 5. Live Transfer Demo with Enhanced Public Inputs
     console.log('\n💎 Live Transfer Demo with Enhanced Public Inputs');
@@ -65,7 +66,12 @@ async function runDemo() {
       'alice',          // from
       'bob',            // to
       { amount: 100 },  // transferParams
-      'transfer'        // transferCircuit
+      'transfer',       // transferCircuit
+      {                 // ledgerMetadata
+        platform: 'ethereum',
+        blockId: '0x1234567890abcdef',
+        ledgerTimestamp: Date.now()
+      }
     );
     
     console.log('\n✅ Transfer Completed Successfully!');
@@ -76,6 +82,7 @@ async function runDemo() {
     console.log(`   ZK Proof Generated: ${transferResult.proof ? 'Yes' : 'No'}`);
     console.log(`   Embedded Metadata: ${transferResult.embeddedMetadata ? 'Yes' : 'No'}`);
     console.log(`   Merkle Roots: ${transferResult.rootBefore ? 'Calculated' : 'Not calculated'}`);
+    console.log(`   Ledger Metadata: ${transferResult.ledgerMetadata ? 'Yes' : 'No'}`);
     
     // Display the new public inputs
     console.log('\n🔍 Enhanced Public Inputs Analysis');
@@ -99,6 +106,23 @@ async function runDemo() {
       console.log('   • The system state was updated correctly (root_before → root_after)\n');
     } else {
       console.log('   ⚠️ Public inputs not available in this transfer result');
+    }
+    
+    // Display ledger metadata
+    if (transferResult.ledgerMetadata) {
+      console.log('🔗 Public Ledger Metadata Analysis');
+      console.log('   The transaction includes public ledger metadata:\n');
+      console.log(`   • Platform: ${transferResult.ledgerMetadata.platform}`);
+      console.log(`   • Block ID: ${transferResult.ledgerMetadata.blockId}`);
+      console.log(`   • Ledger Timestamp: ${new Date(transferResult.ledgerMetadata.ledgerTimestamp).toISOString()}`);
+      console.log(`   • Status: ${transferResult.ledgerMetadata.status}`);
+      console.log(`   • Proof Hash: ${transferResult.ledgerMetadata.proofHash.substring(0, 20)}...\n`);
+      
+      console.log('   💡 This enables complete audit trail:');
+      console.log('   • Which blockchain the proof was stored on');
+      console.log('   • Which block contains the proof');
+      console.log('   • When the proof was committed to the ledger');
+      console.log('   • Cryptographic proof of ledger inclusion\n');
     }
     
     // 6. Token Creation Demo
@@ -148,6 +172,8 @@ async function runDemo() {
     console.log('   ✅ Cryptographically bound proof metadata');
     console.log('   ✅ Enhanced public inputs for better proving capabilities');
     console.log('   ✅ State commitment for integrity verification');
+    console.log('   ✅ Public ledger metadata for complete audit trail');
+    console.log('   ✅ Multi-platform blockchain support (Ethereum, Solana, etc.)');
     console.log('   ✅ Easy testing and maintenance');
     console.log('   ✅ Scalable design for future features');
     

@@ -35,12 +35,14 @@ A modern, modular zero-knowledge proof system for token transfers with flexible 
 4. `saveTxLog(txLog, proof)` - Save to database
 5. `commitTransfer(token)` - Update token states
 6. `saveProofInPublicLedger(proof, txLog)` - Save to blockchain
+7. `updateTxLogWithLedgerMetadata(txId, ledgerRecord)` - Store ledger metadata
 
 ### Database & Storage
 - **SQLite Database**: Persistent storage for transaction logs and metadata
 - **Transaction Logs**: Complete audit trail with proof metadata and public inputs
 - **Proof Metadata**: Embedded cryptographic metadata for verification
 - **Public Ledger**: Simulated blockchain storage for proof records
+- **Ledger Metadata**: Platform, block ID, and timestamp for complete audit trail
 - **Schema**: Modern schema supporting token-based transfers with flexible state fields
 
 ## 📦 Installation & Setup

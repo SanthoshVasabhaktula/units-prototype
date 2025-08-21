@@ -63,29 +63,26 @@ export function getDb() {
     fs.mkdirSync("data", { recursive: true });
     const db = sqlite("data/tx_logs.sqlite");
     
-    // Create tables with proof metadata fields
+    // Create tables with proof metadata and ledger metadata fields
     db.exec(`CREATE TABLE IF NOT EXISTS tx_logs (
       tx_id TEXT PRIMARY KEY,
+      token_id TEXT NOT NULL,
+      token_type INTEGER NOT NULL,
       sender_id TEXT NOT NULL,
       receiver_id TEXT NOT NULL,
-      amount TEXT NOT NULL,
+      transfer_params TEXT NOT NULL,
       ts INTEGER NOT NULL,
-      root_before TEXT NOT NULL,
-      root_after TEXT NOT NULL,
+      root_before TEXT,
+      root_after TEXT,
       proof_json TEXT NOT NULL,
       public_inputs TEXT NOT NULL,
+      proof_metadata TEXT,
       circuit_version TEXT NOT NULL,
       vkey_version TEXT NOT NULL,
-      proving_system TEXT,
-      circuit_name TEXT,
-      circuit_file TEXT,
-      circuit_hash TEXT,
-      proving_key_file TEXT,
-      proving_key_hash TEXT,
-      verification_key_file TEXT,
-      verification_key_hash TEXT,
-      tool_version TEXT,
-      proof_metadata TEXT)
+      ledger_metadata TEXT,
+      ledger_platform TEXT,
+      block_id TEXT,
+      ledger_timestamp INTEGER)
     `);
     
     db.exec(`CREATE TABLE IF NOT EXISTS accounts (
@@ -119,22 +116,26 @@ export function persistTx({tx_id, sender_id, receiver_id, amount, ts, root_befor
     );
   };
   
+  // For backward compatibility, we'll use default values for new required fields
+  const token_id = 'GOLD'; // Default token for legacy transfers
+  const token_type = 0;    // Default to fungible
+  const transfer_params = JSON.stringify({ amount: Number(amount) });
+  
   if (proofMetadata) {
     // Use proof metadata if available
     const stmt = db.prepare(`INSERT OR REPLACE INTO tx_logs
-      (tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version, proof_metadata)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+      (tx_id, token_id, token_type, sender_id, receiver_id, transfer_params, ts, root_before, root_after, proof_json, public_inputs, proof_metadata, circuit_version, vkey_version)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     stmt.run(
-      tx_id, sender_id, receiver_id, String(amount), ts, String(root_before), String(root_after), 
-      safeStringify(proof_json), safeStringify(public_inputs), circuit_version, vkey_version,
-      safeStringify(proofMetadata)
+      tx_id, token_id, token_type, sender_id, receiver_id, transfer_params, ts, String(root_before), String(root_after), 
+      safeStringify(proof_json), safeStringify(public_inputs), safeStringify(proofMetadata), circuit_version, vkey_version
     );
   } else {
     // Fallback to basic metadata
     const stmt = db.prepare(`INSERT OR REPLACE INTO tx_logs
-      (tx_id, sender_id, receiver_id, amount, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
-    stmt.run(tx_id, sender_id, receiver_id, String(amount), ts, String(root_before), String(root_after), safeStringify(proof_json), safeStringify(public_inputs), circuit_version, vkey_version);
+      (tx_id, token_id, token_type, sender_id, receiver_id, transfer_params, ts, root_before, root_after, proof_json, public_inputs, circuit_version, vkey_version)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    stmt.run(tx_id, token_id, token_type, sender_id, receiver_id, transfer_params, ts, String(root_before), String(root_after), safeStringify(proof_json), safeStringify(public_inputs), circuit_version, vkey_version);
   }
   
   db.close();
@@ -176,12 +177,13 @@ export function getAllTransactions(accountId = null) {
   
   db.close();
   
-  // Parse proof_json, public_inputs, and proof_metadata from strings to JSON objects
+  // Parse proof_json, public_inputs, proof_metadata, and ledger_metadata from strings to JSON objects
   return rows.map(row => ({
     ...row,
     proof_json: JSON.parse(row.proof_json),
     public_inputs: JSON.parse(row.public_inputs),
-    proof_metadata: row.proof_metadata ? JSON.parse(row.proof_metadata) : null
+    proof_metadata: row.proof_metadata ? JSON.parse(row.proof_metadata) : null,
+    ledger_metadata: row.ledger_metadata ? JSON.parse(row.ledger_metadata) : null
   }));
 }
 

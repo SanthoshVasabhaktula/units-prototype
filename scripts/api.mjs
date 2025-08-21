@@ -23,15 +23,16 @@ import { groth16 } from "snarkjs";
 const DEPTH = 4; // 16 leaves
 
 /**
- * Main transfer function implementing the 6-step transfer flow
+ * Main transfer function implementing the 7-step transfer flow
  * @param {string} tokenId - Token ID to transfer
  * @param {string} from - Sender account ID
  * @param {string} to - Receiver account ID
  * @param {Object} transferParams - Transfer parameters
  * @param {string} transferCircuit - Circuit type to use ('transfer' or 'generic')
+ * @param {Object} ledgerMetadata - Optional ledger metadata (platform, blockId, etc.)
  * @returns {Object} - Transfer result
  */
-export async function transfer(tokenId, from, to, transferParams = {}, transferCircuit = 'transfer') {
+export async function transfer(tokenId, from, to, transferParams = {}, transferCircuit = 'transfer', ledgerMetadata = {}) {
   console.log(`🚀 Starting token transfer: ${tokenId} from ${from} to ${to}`);
   
   try {
@@ -61,6 +62,9 @@ export async function transfer(tokenId, from, to, transferParams = {}, transferC
     // Step 6: Save proof to public ledger
     const ledgerRecord = StorageService.saveProofInPublicLedger(proofResult.proof, txLog);
     
+    // Step 7: Update transaction log with public ledger metadata
+    const ledgerMetadataRecord = StorageService.updateTxLogWithLedgerMetadata(txLog.id, ledgerRecord, ledgerMetadata);
+    
     console.log("🎉 Transfer completed successfully!");
     
     return {
@@ -77,6 +81,7 @@ export async function transfer(tokenId, from, to, transferParams = {}, transferC
       rootAfter: txLog.merkleData?.rootAfter,
       timestamp: txLog.timestamp,
       ledgerRecord,
+      ledgerMetadata: ledgerMetadataRecord,
       // Proof with embedded metadata
       embeddedMetadata: proofResult.proof.metadata
     };

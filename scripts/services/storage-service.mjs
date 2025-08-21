@@ -120,4 +120,55 @@ export class StorageService {
     console.log("✅ Proof saved to public ledger:", ledgerRecord);
     return ledgerRecord;
   }
+
+  /**
+   * Update transaction log with public ledger metadata (Step 7)
+   * @param {string} txId - Transaction ID
+   * @param {Object} ledgerRecord - Ledger record from saveProofInPublicLedger
+   * @param {Object} ledgerMetadata - Additional ledger metadata
+   * @returns {Object} - Updated transaction record
+   */
+  static updateTxLogWithLedgerMetadata(txId, ledgerRecord, ledgerMetadata = {}) {
+    console.log(`▶ Updating transaction log with ledger metadata: ${txId}`);
+    
+    // Determine the ledger platform based on metadata or default to 'ethereum'
+    const platform = ledgerMetadata.platform || 'ethereum';
+    
+    // Generate a simulated block ID for demo purposes
+    // In a real implementation, this would come from the actual blockchain
+    const blockId = ledgerMetadata.blockId || `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Use the ledger timestamp or current timestamp
+    const ledgerTimestamp = ledgerMetadata.ledgerTimestamp || Date.now();
+    
+    // Create the ledger metadata object
+    const fullLedgerMetadata = {
+      ...ledgerRecord,
+      platform: platform,
+      blockId: blockId,
+      ledgerTimestamp: ledgerTimestamp,
+      ...ledgerMetadata
+    };
+    
+    // Update the database
+    const db = this.getDB();
+    const stmt = db.prepare(`
+      UPDATE tx_logs 
+      SET ledger_metadata = ?, ledger_platform = ?, block_id = ?, ledger_timestamp = ?
+      WHERE tx_id = ?
+    `);
+    
+    stmt.run(
+      JSON.stringify(fullLedgerMetadata),
+      platform,
+      blockId,
+      ledgerTimestamp,
+      txId
+    );
+    
+    db.close();
+    
+    console.log("✅ Transaction log updated with ledger metadata:", fullLedgerMetadata);
+    return fullLedgerMetadata;
+  }
 }

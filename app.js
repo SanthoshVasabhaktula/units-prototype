@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 3000;
 // --- API 1: Token Transfer with ZK Proof (New Token-Based API) ---
 app.post('/api/transfer', async (req, res) => {
   try {
-    const { tokenId, from, to, transferParams, transferCircuit } = req.body;
+    const { tokenId, from, to, transferParams, transferCircuit, ledgerMetadata } = req.body;
     
     if (!tokenId || !from || !to) {
       return res.status(400).json({
@@ -39,7 +39,8 @@ app.post('/api/transfer', async (req, res) => {
       from,
       to,
       params,
-      circuit
+      circuit,
+      ledgerMetadata || {}
     );
 
     res.json(result);
@@ -54,7 +55,7 @@ app.post('/api/transfer', async (req, res) => {
 // --- API 2: Generic Token Transfer with ZK Proof ---
 app.post('/api/transfer/generic', async (req, res) => {
   try {
-    const { tokenId, from, to, transferParams, transferCircuit } = req.body;
+    const { tokenId, from, to, transferParams, transferCircuit, ledgerMetadata } = req.body;
     
     if (!tokenId || !from || !to) {
       return res.status(400).json({
@@ -72,7 +73,8 @@ app.post('/api/transfer/generic', async (req, res) => {
       from,
       to,
       params,
-      circuit
+      circuit,
+      ledgerMetadata || {}
     );
 
     res.json(result);
